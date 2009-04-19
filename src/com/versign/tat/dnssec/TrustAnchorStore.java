@@ -33,16 +33,12 @@ import java.util.Map;
 
 import org.xbill.DNS.Name;
 
-import com.versign.tat.dnssec.SRRset;
-import com.versign.tat.dnssec.SecurityStatus;
-
-
 /**
  *
  */
 public class TrustAnchorStore
 {
-  private Map mMap;
+  private Map<String, SRRset> mMap;
   
   public TrustAnchorStore()
   {
@@ -59,7 +55,7 @@ public class TrustAnchorStore
   {
     if (mMap == null)
     {
-      mMap = new HashMap();
+      mMap = new HashMap<String, SRRset>();
     }
     String k = key(rrset.getName(), rrset.getDClass());
     rrset.setSecurityStatus(SecurityStatus.SECURE);
@@ -70,7 +66,7 @@ public class TrustAnchorStore
   private SRRset lookup(String key)
   {
     if (mMap == null) return null;
-    return (SRRset) mMap.get(key);
+    return mMap.get(key);
   }
   
   public SRRset find(Name n, int dclass)

@@ -31,15 +31,10 @@ package com.versign.tat.dnssec;
 
 import java.util.*;
 
-import org.xbill.DNS.Flags;
-import org.xbill.DNS.Header;
 import org.xbill.DNS.Name;
 
 /**
  * Some basic utility functions.
- * 
- * @author davidb
- * @version $Revision$
  */
 public class Util
 {
@@ -60,31 +55,6 @@ public class Util
 
     return n;
   }
-
-//  public static SMessage errorMessage(Request request, int rcode)
-//  {
-//    SMessage m = new SMessage(request.getID());
-//    Header h = m.getHeader();
-//    h.setRcode(rcode);
-//    h.setFlag(Flags.QR);
-//    m.setQuestion(request.getQuestion());
-//    m.setOPT(request.getOPT());
-//
-//    return m;
-//  }
-//
-//  public static SMessage errorMessage(SMessage message, int rcode)
-//  {
-//    Header h = message.getHeader();
-//    SMessage m = new SMessage(h.getID());
-//    h = m.getHeader();
-//    h.setRcode(rcode);
-//    h.setFlag(Flags.QR);
-//    m.setQuestion(message.getQuestion());
-//    m.setOPT(message.getOPT());
-//
-//    return m;
-//  }
 
   public static int parseInt(String s, int def)
   {
@@ -123,25 +93,21 @@ public class Util
     }
   }
   
-  public static List parseConfigPrefix(Properties config, String prefix)
+  public static List<ConfigEntry> parseConfigPrefix(Properties config, String prefix)
   {
     if (! prefix.endsWith("."))
     {
       prefix = prefix + ".";
     }
     
-    List res = new ArrayList();
+    List<ConfigEntry> res = new ArrayList<ConfigEntry>();
     
-    for (Iterator i = config.entrySet().iterator(); i.hasNext(); )
-    {
-      Map.Entry entry = (Map.Entry) i.next();
-      String key = (String) entry.getKey();
-      if (key.startsWith(prefix))
-      {
-        key = key.substring(prefix.length());
-        
-        res.add(new ConfigEntry(key, (String) entry.getValue()));
-      }
+    for (Map.Entry<Object, Object> entry : config.entrySet()) {
+        String key = (String) entry.getKey();
+        if (key.startsWith(prefix)) {
+            key = key.substring(prefix.length());
+            res.add(new ConfigEntry(key, (String) entry.getValue()));
+        }
     }
     
     return res;

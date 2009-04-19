@@ -1,7 +1,5 @@
 /*
- * $Id$
- *
- * Copyright (c) 2005 VeriSign, Inc. All rights reserved.
+ * Copyright (c) 2009 VeriSign, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,7 +54,7 @@ public class DnsSecVerifier
    * This is a mapping of DNSSEC algorithm numbers/private identifiers to JCA
    * algorithm identifiers.
    */
-  private HashMap mAlgorithmMap;
+  private HashMap<Integer, AlgEntry> mAlgorithmMap;
 
   private static class AlgEntry
   {
@@ -74,7 +72,7 @@ public class DnsSecVerifier
 
   public DnsSecVerifier()
   {
-    mAlgorithmMap = new HashMap();
+    mAlgorithmMap = new HashMap<Integer, AlgEntry>();
 
     // set the default algorithm map.
     mAlgorithmMap.put(new Integer(DNSSEC.RSAMD5), new AlgEntry("MD5withRSA",
@@ -105,12 +103,9 @@ public class DnsSecVerifier
 
     // For now, we just accept new identifiers for existing algoirthms.
     // FIXME: handle private identifiers.
-    List aliases = Util.parseConfigPrefix(config, "dns.algorithm.");
+    List<Util.ConfigEntry> aliases = Util.parseConfigPrefix(config, "dns.algorithm.");
 
-    for (Iterator i = aliases.iterator(); i.hasNext();)
-    {
-      Util.ConfigEntry entry = (Util.ConfigEntry) i.next();
-
+    for (Util.ConfigEntry entry : aliases) {
       Integer alg_alias = new Integer(Util.parseInt(entry.key, -1));
       Integer alg_orig = new Integer(Util.parseInt(entry.value, -1));
 
@@ -132,16 +127,14 @@ public class DnsSecVerifier
     }
 
     // for debugging purposes, log the entire algorithm map table.
-    for (Iterator i = mAlgorithmMap.keySet().iterator(); i.hasNext(); )
-    {
-      Integer alg = (Integer) i.next();
-      AlgEntry entry = (AlgEntry) mAlgorithmMap.get(alg);
+//    for (Integer alg : mAlgorithmMap.keySet()) {
+//      AlgEntry entry =  mAlgorithmMap.get(alg);
 //      if (entry == null) 
 //        log.warn("DNSSEC alg " + alg + " has a null entry!");
 //      else
 //        log.debug("DNSSEC alg " + alg + " maps to " + entry.jcaName
 //            + " (" + entry.dnssecAlg + ")");
-    }
+//    }
   }
 
   /**
@@ -154,7 +147,8 @@ public class DnsSecVerifier
    * @return A List contains a one or more DNSKEYRecord objects, or null if a
    *         matching DNSKEY could not be found.
    */
-  private List findKey(RRset dnskey_rrset, RRSIGRecord signature)
+  @SuppressWarnings("unchecked")
+private List<DNSKEYRecord> findKey(RRset dnskey_rrset, RRSIGRecord signature)
   {
     if (!signature.getSigner().equals(dnskey_rrset.getName()))
     {
@@ -167,7 +161,7 @@ public class DnsSecVerifier
     int keyid = signature.getFootprint();
     int alg = signature.getAlgorithm();
 
-    List res = new ArrayList(dnskey_rrset.size());
+    List<DNSKEYRecord> res = new ArrayList<DNSKEYRecord>(dnskey_rrset.size());
 
     for (Iterator i = dnskey_rrset.rrs(); i.hasNext();)
     {
@@ -325,7 +319,7 @@ public class DnsSecVerifier
     byte result = checkSignature(rrset, sigrec);
     if (result != SecurityStatus.SECURE) return result;
 
-    List keys = findKey(key_rrset, sigrec);
+    List<DNSKEYRecord> keys = findKey(key_rrset, sigrec);
 
     if (keys == null)
     {
@@ -335,9 +329,7 @@ public class DnsSecVerifier
 
     byte status = SecurityStatus.UNCHECKED;
 
-    for (Iterator i = keys.iterator(); i.hasNext();)
-    {
-      DNSKEYRecord key = (DNSKEYRecord) i.next();
+    for (DNSKEYRecord key : keys) {
       status = verifySignature(rrset, sigrec, key);
 
       if (status == SecurityStatus.SECURE) break;
@@ -354,7 +346,8 @@ public class DnsSecVerifier
    * @return SecurityStatus.SECURE if the rrest verified positively,
    *         SecurityStatus.BOGUS otherwise.
    */
-  public byte verify(RRset rrset, RRset key_rrset)
+  @SuppressWarnings("unchecked")
+public byte verify(RRset rrset, RRset key_rrset)
   {
     Iterator i = rrset.sigs();
 
@@ -386,7 +379,8 @@ public class DnsSecVerifier
    * @param dnskey The DNSKEY to verify with.
    * @return SecurityStatus.SECURE if the rrset verified, BOGUS otherwise.
    */
-  public byte verify(RRset rrset, DNSKEYRecord dnskey)
+  @SuppressWarnings("unchecked")
+public byte verify(RRset rrset, DNSKEYRecord dnskey)
   {
     // Iterate over RRSIGS
 

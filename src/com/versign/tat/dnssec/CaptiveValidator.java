@@ -298,6 +298,14 @@ public class CaptiveValidator {
         m.setStatus(SecurityStatus.SECURE);
     }
 
+    private void validateReferral(SMessage message, SRRset key_rrset) {
+        
+    }
+    
+    private void validateCNAMEResponse(SMessage message, SRRset key_rrset) {
+        
+    }
+    
     /**
      * Given an "ANY" response -- a response that contains an answer to a
      * qtype==ANY question, with answers. This consists of simply verifying all
@@ -675,34 +683,38 @@ public class CaptiveValidator {
 //    }
 
 
-    public byte validateMessage(SMessage message) {
+    public byte validateMessage(SMessage message, Name zone) {
 
         SRRset key_rrset = findKeys(message);
         if (key_rrset == null) {
             return SecurityStatus.BOGUS;
         }
         
-        int subtype = ValUtils.classifyResponse(message);
+        ValUtils.ResponseType subtype = ValUtils.classifyResponse(message, zone);
 
         switch (subtype) {
-        case ValUtils.POSITIVE:
+        case POSITIVE:
             // log.trace("Validating a positive response");
             validatePositiveResponse(message, key_rrset);
             break;
-        case ValUtils.NODATA:
+        case REFERRAL:
+            validateReferral(message, key_rrset);
+            break;
+        case NODATA:
             // log.trace("Validating a nodata response");
             validateNodataResponse(message, key_rrset);
             break;
-        case ValUtils.NAMEERROR:
+        case NAMEERROR:
             // log.trace("Validating a nxdomain response");
             validateNameErrorResponse(message, key_rrset);
             break;
-        case ValUtils.CNAME:
+        case CNAME:
             // log.trace("Validating a cname response");
             // forward on to the special CNAME state for this.
 //            state.state = ValEventState.CNAME_STATE;
+            validateCNAMEResponse(message, key_rrset);
             break;
-        case ValUtils.ANY:
+        case ANY:
             // log.trace("Validating a postive ANY response");
             validateAnyResponse(message, key_rrset);
             break;

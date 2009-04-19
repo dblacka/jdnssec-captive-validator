@@ -45,26 +45,40 @@ public class ValUtils {
     // validation strategy. They have no bearing on the iterative resolution
     // algorithm, so they are confined here.
 
-    /** Not subtyped yet. */
-    public static final int UNTYPED   = 0;
-
-    /** Not a recognized subtype. */
-    public static final int UNKNOWN   = 1;
-
-    /** A postive, direct, response. */
-    public static final int POSITIVE  = 2;
-
-    /** A postive response, with a CNAME/DNAME chain. */
-    public static final int CNAME     = 3;
-
-    /** A NOERROR/NODATA response. */
-    public static final int NODATA    = 4;
-
-    /** A NXDOMAIN response. */
-    public static final int NAMEERROR = 5;
-
-    /** A response to a qtype=ANY query. */
-    public static final int ANY       = 6;
+    public enum ResponseType {
+        UNTYPED, // not sub typed yet
+        UNKNOWN, // not a recognized sub type
+        POSITIVE, // a positive response (no CNAME/DNAME chain)
+        CNAME, // a positive response with a CNAME/DNAME chain.
+        NODATA, // a NOERROR/NODATA response
+        NAMEERROR, // a NXDOMAIN response
+        ANY, // a response to a qtype=ANY query
+        REFERRAL,
+        // a referral response
+        THROWAWAY
+        // a throwaway response (i.e., an error)
+    }
+    
+//    /** Not subtyped yet. */
+//    public static final int UNTYPED   = 0;
+//
+//    /** Not a recognized subtype. */
+//    public static final int UNKNOWN   = 1;
+//
+//    /** A postive, direct, response. */
+//    public static final int POSITIVE  = 2;
+//
+//    /** A postive response, with a CNAME/DNAME chain. */
+//    public static final int CNAME     = 3;
+//
+//    /** A NOERROR/NODATA response. */
+//    public static final int NODATA    = 4;
+//
+//    /** A NXDOMAIN response. */
+//    public static final int NAMEERROR = 5;
+//
+//    /** A response to a qtype=ANY query. */
+//    public static final int ANY       = 6;
 
     /** A local copy of the verifier object. */
     private DnsSecVerifier  mVerifier;
@@ -81,18 +95,38 @@ public class ValUtils {
      * 
      * @return A subtype ranging from UNKNOWN to NAMEERROR.
      */
-    public static int classifyResponse(SMessage m) {
+    public static ResponseType classifyResponse(SMessage m, Name zone) {
+
+        SRRset[] rrsets;
         // Normal Name Error's are easy to detect -- but don't mistake a CNAME
         // chain ending in NXDOMAIN.
         if (m.getRcode() == Rcode.NXDOMAIN && m.getCount(Section.ANSWER) == 0) {
-            return NAMEERROR;
+            return ResponseType.NAMEERROR;
+        }
+
+        // If rcode isn't NXDOMAIN or NOERROR, it is a throwaway response.
+        if (m.getRcode() != Rcode.NOERROR) {
+            return ResponseType.THROWAWAY;
+        }
+
+        // Next is REFERRAL. These are distinguished by having:
+        // 1) nothing in the ANSWER section
+        // 2) an NS RRset in the AUTHORITY section that is a strict subdomain of
+        // 'zone' (the presumed queried zone).
+        if (zone != null && m.getCount(Section.ANSWER) == 0
+            && m.getCount(Section.AUTHORITY) > 0) {
+            rrsets = m.getSectionRRsets(Section.AUTHORITY);
+            for (int i = 0; i < rrsets.length; ++i) {
+                if (rrsets[i].getType() == Type.NS
+                    && strictSubdomain(rrsets[i].getName(), zone)) {
+                    return ResponseType.REFERRAL;
+                }
+            }
         }
 
         // Next is NODATA
-        // st_log.debug("classifyResponse: ancount = " +
-        // m.getCount(Section.ANSWER));
         if (m.getCount(Section.ANSWER) == 0) {
-            return NODATA;
+            return ResponseType.NODATA;
         }
 
         // We distinguish between CNAME response and other positive/negative
@@ -100,23 +134,22 @@ public class ValUtils {
         int qtype = m.getQuestion().getType();
 
         // We distinguish between ANY and CNAME or POSITIVE because ANY
-        // responses
-        // are validated differently.
+        // responses are validated differently.
         if (qtype == Type.ANY) {
-            return ANY;
+            return ResponseType.ANY;
         }
 
-        SRRset[] rrsets = m.getSectionRRsets(Section.ANSWER);
+        rrsets = m.getSectionRRsets(Section.ANSWER);
 
         // Note that DNAMEs will be ignored here, unless qtype=DNAME. Unless
         // qtype=CNAME, this will yield a CNAME response.
         for (int i = 0; i < rrsets.length; i++) {
-            if (rrsets[i].getType() == qtype) return POSITIVE;
-            if (rrsets[i].getType() == Type.CNAME) return CNAME;
+            if (rrsets[i].getType() == qtype) return ResponseType.POSITIVE;
+            if (rrsets[i].getType() == Type.CNAME) return ResponseType.CNAME;
         }
 
         // st_log.warn("Failed to classify response message:\n" + m);
-        return UNKNOWN;
+        return ResponseType.UNKNOWN;
     }
 
     /**
@@ -126,162 +159,25 @@ public class ValUtils {
      * 
      * @param m
      *            The response to analyze.
-     * @param request
-     *            The request that generated the response.
      * @return a signer name, if the response is signed (even partially), or
      *         null if the response isn't signed.
      */
     public Name findSigner(SMessage m) {
-        int subtype = classifyResponse(m);
-        Name qname = m.getQName();
+        // FIXME: this used to classify the message, then look in the pertinent
+        // section. Now we just find the first RRSIG in the ANSWER and AUTHORIY
+        // sections.
 
-        SRRset[] rrsets;
-
-        switch (subtype) {
-        case POSITIVE:
-        case CNAME:
-        case ANY:
-            // Check to see if the ANSWER section RRset
-            rrsets = m.getSectionRRsets(Section.ANSWER);
-            for (int i = 0; i < rrsets.length; i++) {
-                if (rrsets[i].getName().equals(qname)) {
-                    return rrsets[i].getSignerName();
-                }
-            }
-            return null;
-
-        case NAMEERROR:
-        case NODATA:
-            // Check to see if the AUTH section NSEC record(s) have rrsigs
-            rrsets = m.getSectionRRsets(Section.AUTHORITY);
-            for (int i = 0; i < rrsets.length; i++) {
-                if (rrsets[i].getType() == Type.NSEC
-                    || rrsets[i].getType() == Type.NSEC3) {
-                    return rrsets[i].getSignerName();
-                }
-            }
-            return null;
-        default:
-            // log.debug("findSigner: could not find signer name "
-            // + "for unknown type response.");
-            return null;
-        }
-    }
-
-    public boolean dssetIsUsable(SRRset ds_rrset) {
-        for (Iterator i = ds_rrset.rrs(); i.hasNext();) {
-            DSRecord ds = (DSRecord) i.next();
-            if (supportsDigestID(ds.getDigestID())
-                && mVerifier.supportsAlgorithm(ds.getAlgorithm())) {
-                return true;
+        for (int section = Section.ANSWER; section < Section.ADDITIONAL; ++section) {
+            SRRset[] rrsets = m.getSectionRRsets(section);
+            for (int i = 0; i < rrsets.length; ++i) {
+                Name signerName = rrsets[i].getSignerName();
+                if (signerName != null) return signerName;
             }
         }
-
-        return false;
+        return null;
     }
 
-    /**
-     * Given a DS rrset and a DNSKEY rrset, match the DS to a DNSKEY and verify
-     * the DNSKEY rrset with that key.
-     * 
-     * @param dnskey_rrset
-     *            The DNSKEY rrset to match against. The security status of this
-     *            rrset will be updated on a successful verification.
-     * @param ds_rrset
-     *            The DS rrset to match with. This rrset must already be
-     *            trusted.
-     * 
-     * @return a KeyEntry. This will either contain the now trusted
-     *         dnskey_rrset, a "null" key entry indicating that this DS
-     *         rrset/DNSKEY pair indicate an secure end to the island of trust
-     *         (i.e., unknown algorithms), or a "bad" KeyEntry if the dnskey
-     *         rrset fails to verify. Note that the "null" response should
-     *         generally only occur in a private algorithm scenario: normally
-     *         this sort of thing is checked before fetching the matching DNSKEY
-     *         rrset.
-     */
-    // public KeyEntry verifyNewDNSKEYs(SRRset dnskey_rrset, SRRset ds_rrset)
-    // {
-    // if (!dnskey_rrset.getName().equals(ds_rrset.getName()))
-    // {
-    // // log.debug("DNSKEY RRset did not match DS RRset by name!");
-    // return KeyEntry
-    // .newBadKeyEntry(ds_rrset.getName(), ds_rrset.getDClass());
-    // }
-    //
-    // // as long as this is false, we can consider this DS rrset to be
-    // // equivalent to no DS rrset.
-    // boolean hasUsefulDS = false;
-    //
-    // for (Iterator i = ds_rrset.rrs(); i.hasNext();)
-    // {
-    // DSRecord ds = (DSRecord) i.next();
-    //
-    // // Check to see if we can understand this DS.
-    // if (!supportsDigestID(ds.getDigestID())
-    // || !mVerifier.supportsAlgorithm(ds.getAlgorithm()))
-    // {
-    // continue;
-    // }
-    //
-    // // Once we see a single DS with a known digestID and algorithm, we
-    // // cannot return INSECURE (with a "null" KeyEntry).
-    // hasUsefulDS = true;
-    //
-    // DNSKEY : for (Iterator j = dnskey_rrset.rrs(); j.hasNext();)
-    // {
-    // DNSKEYRecord dnskey = (DNSKEYRecord) j.next();
-    //
-    // // Skip DNSKEYs that don't match the basic criteria.
-    // if (ds.getFootprint() != dnskey.getFootprint()
-    // || ds.getAlgorithm() != dnskey.getAlgorithm())
-    // {
-    // continue;
-    // }
-    //
-    // // Convert the candidate DNSKEY into a hash using the same DS hash
-    // // algorithm.
-    // byte[] key_hash = calculateDSHash(dnskey, ds.getDigestID());
-    // byte[] ds_hash = ds.getDigest();
-    //
-    // // see if there is a length mismatch (unlikely)
-    // if (key_hash.length != ds_hash.length)
-    // {
-    // continue DNSKEY;
-    // }
-    //
-    // for (int k = 0; k < key_hash.length; k++)
-    // {
-    // if (key_hash[k] != ds_hash[k]) continue DNSKEY;
-    // }
-    //
-    // // Otherwise, we have a match! Make sure that the DNSKEY verifies
-    // // *with this key*.
-    // byte res = mVerifier.verify(dnskey_rrset, dnskey);
-    // if (res == SecurityStatus.SECURE)
-    // {
-    // // log.trace("DS matched DNSKEY.");
-    // dnskey_rrset.setSecurityStatus(SecurityStatus.SECURE);
-    // return KeyEntry.newKeyEntry(dnskey_rrset);
-    // }
-    // // If it didn't validate with the DNSKEY, try the next one!
-    // }
-    // }
-    //
-    // // None of the DS's worked out.
-    //
-    // // If no DSs were understandable, then this is OK.
-    // if (!hasUsefulDS)
-    // {
-    // //
-    // log.debug("No usuable DS records were found -- treating as insecure.");
-    // return KeyEntry.newNullKeyEntry(ds_rrset.getName(), ds_rrset
-    // .getDClass(), ds_rrset.getTTL());
-    // }
-    // // If any were understandable, then it is bad.
-    // // log.debug("Failed to match any usable DS to a DNSKEY.");
-    // return KeyEntry.newBadKeyEntry(ds_rrset.getName(), ds_rrset.getDClass());
-    // }
+
     /**
      * Given a DNSKEY record, generate the DS record from it.
      * 
@@ -406,9 +302,9 @@ public class ValUtils {
      * @return The status (BOGUS or SECURE).
      */
     public byte verifySRRset(SRRset rrset, SRRset key_rrset) {
-        String rrset_name = rrset.getName() + "/"
-                            + Type.string(rrset.getType()) + "/"
-                            + DClass.string(rrset.getDClass());
+//        String rrset_name = rrset.getName() + "/"
+//                            + Type.string(rrset.getType()) + "/"
+//                            + DClass.string(rrset.getDClass());
 
         if (rrset.getSecurityStatus() == SecurityStatus.SECURE) {
             // log.trace("verifySRRset: rrset <" + rrset_name
@@ -433,7 +329,7 @@ public class ValUtils {
     }
 
     /**
-     * Determine if a given type map has a given typ.
+     * Determine if a given type map has a given type.
      * 
      * @param types
      *            The type map from the NSEC record.
@@ -448,6 +344,7 @@ public class ValUtils {
         return false;
     }
 
+    @SuppressWarnings("unchecked")
     public static RRSIGRecord rrsetFirstSig(RRset rrset) {
         for (Iterator i = rrset.sigs(); i.hasNext();) {
             return (RRSIGRecord) i.next();
@@ -517,7 +414,7 @@ public class ValUtils {
      * generating wildcard.
      * 
      * @param rrset
-     *            The rrset to chedck.
+     *            The rrset to check.
      * @return the wildcard name, if the rrset was synthesized from a wildcard.
      *         null if not.
      */
@@ -577,14 +474,11 @@ public class ValUtils {
 
         // If NSEC is a parent of qname, we need to check the type map
         // If the parent name has a DNAME or is a delegation point, then this
-        // NSEC
-        // is being misused.
-        if (qname.subdomain(owner)
-            && (typeMapHasType(nsec.getTypes(), Type.DNAME) || (typeMapHasType(
-                                                                               nsec.getTypes(),
-                                                                               Type.NS) && !typeMapHasType(
-                                                                                                           nsec.getTypes(),
-                                                                                                           Type.SOA)))) {
+        // NSEC is being misused.
+        boolean hasBadType = typeMapHasType(nsec.getTypes(), Type.DNAME)
+                             || (typeMapHasType(nsec.getTypes(), Type.NS) && !typeMapHasType(nsec.getTypes(),
+                                                                                             Type.SOA));
+        if (qname.subdomain(owner) && hasBadType) {
             return false;
         }
 
