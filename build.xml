@@ -1,0 +1,334 @@
+<?xml version="1.0"?>
+
+<project default="compile" basedir=".">
+
+  <!-- defaults -->
+  <property name="build.deprecation" value="off" />
+  <property name="build.debug" value="off" />
+
+  <!-- import local build options -->
+  <property file="build.properties" />
+
+  <!-- import current version string -->
+  <property file="VERSION" />
+
+  <!-- the base location to put build targets -->
+  <property name="build.dir" value="build" />
+  <!-- where to put compiled class files -->
+  <property name="build.dest" value="${build.dir}/classes" />
+  <!-- where to put generated jar files -->
+  <property name="build.lib.dest" value="${build.dir}/lib" />
+  <!-- where to put generated javadocs -->
+  <property name="javadoc.dest" value="${build.dir}/doc" />
+  <!-- where to find the java source -->
+  <property name="build.src" value="src" />
+
+  <!-- where to find external jar files -->
+  <property name="lib.dir" value="lib" />
+
+  <!-- where the unit tests reside -->
+  <property name="test.dir" value="test" />
+  <property name="test.reports" value="${test.dir}/reports" />
+
+  <!-- PREPARE targets -->
+
+  <target name="prepare-env">
+    <!-- see if the 'test' directory exists -->
+    <available file="${test.dir}" type="dir" property="test.present" />
+
+    <!-- set the standard classpath -->
+    <path id="project.classpath">
+      <pathelement location="${build.dest}" />
+      <fileset dir="${lib.dir}" includes="*.jar,*.zip" />
+    </path>
+    <property name="project.classpath" refid="project.classpath" />
+
+  </target>
+
+  <target name="prepare-src" depends="prepare-env">
+    <mkdir dir="${build.dest}" />
+    <mkdir dir="${build.lib.dest}" />
+  </target>
+
+  <target name="prepare-test" depends="prepare-src" if="test.present">
+    <mkdir dir="${test.dir}/${build.dest}" />
+    <mkdir dir="${test.reports}" />
+
+    <path id="test.classpath">
+      <pathelement location="${test.dir}/${build.dest}" />
+      <pathelement path="${project.classpath}" />
+      <fileset dir="${test.dir}/${lib.dir}" includes="*jar,*.zip" />
+    </path>
+    <property name="test.classpath" refid="test.classpath" />
+  </target>
+
+  <!-- BUILD targets -->
+
+  <target name="dnsjava">
+
+    <javac srcdir="dnsjava"
+           destdir="${build.dest}"
+           deprecation="${build.deprecation}"
+           debug="${build.debug}"
+           target="1.4"
+           source="1.4"
+           includes="org/xbill/DNS/" />
+    <jar destfile="${build.lib.dest}/dnsjava-unbound.jar"
+         basedir="${build.dest}"
+         includes="org/xbill/DNS/" />
+
+  </target>
+
+  <target name="unbound-proto" depends="prepare-src, dnsjava" >
+    <javac srcdir="${build.src}"
+           destdir="${build.dest}"
+           deprecation="${build.deprecation}"
+           debug="${build.debug}"
+           target="1.4"
+           source="1.4"
+           classpathref="project.classpath"
+           includes="se/rfc/unbound/" />
+  </target>
+  
+  <target name="unbound-proto-jar" depends="unbound-proto">
+    <jar jarfile="${build.lib.dest}/unbound-prototype.jar"
+         basedir="${build.dest}"
+         includes="se/rfc/unbound/" />
+         
+  </target>
+
+
+  <!-- DOC targets -->
+
+  <target name="javadoc-unbound-proto" depends="prepare-src">
+    <mkdir dir="${javadoc.dest}" />
+    <javadoc packagenames="se.rfc.unbound.*"
+             sourcepath="${build.src}"
+             overview=""
+             classpath="${project.classpath}"
+             destdir="${javadoc.dest}"
+             verbose="false"
+             version="true"
+             author="true"
+             use="true"
+             windowtitle="Unbound Prototype API Documentation">
+    </javadoc>
+  </target>
+
+  <!-- TEST targets -->
+  <target name="build-tests" depends="prepare-test, unbound-proto"
+          if="test.present">
+    <javac srcdir="${test.dir}/${build.src}"
+           destdir="${test.dir}/${build.dest}"
+           deprecation="${build.deprecation}"
+           debug="${build.debug}"
+           target="1.4"
+           source="1.4"
+           classpathref="test.classpath"
+           includes="se/rfc/unbound/" />
+  </target>
+
+  <target name="run-tests" depends="build-tests" if="test.present">
+    <junit printsummary="yes"
+           fork="yes"
+           dir="${test.dir}"
+           timeout="12000">
+      
+      <classpath>
+        <pathelement path="${test.classpath}" />
+      </classpath>
+      
+      <formatter type="plain" />
+
+      <batchtest todir="${test.reports}">
+        <fileset dir="${test.dir}/${build.dest}">
+          <include name="se/rfc/unbound/**/*Test.class" />
+        </fileset>
+      </batchtest>
+    </junit>
+
+  </target>
+
+  <!-- DIST targets -->
+
+  <property name="unbound-proto-distname" 
+            value="unbound-prototype-${version}" />
+
+  <target name="unbound-proto-dist"
+          depends="compile">
+
+    <tar tarfile="${unbound-proto-distname}.tar.gz"
+         compression="gzip">
+      <tarfileset mode="755"
+                  dir="."
+                  prefix="${unbound-proto-distname}">
+        <include name="bin/*.sh" />
+        <exclude name="bin/_*.sh" />
+      </tarfileset>
+
+      <tarfileset dir="."
+                  prefix="${unbound-proto-distname}">
+        <include name="lib/*.jar" />
+        <include name="etc/*.properties" />
+        <include name="etc/named.ca" />
+        <include name="etc/trust_anchors" />
+        <include name="etc/*_trust_anchors" />
+        <include name="VERSION" />
+        <include name="README" />
+        <include name="licenses/**" />
+        <exclude name="bin/**" />
+      </tarfileset>
+
+      <tarfileset dir="${build.lib.dest}"
+                  prefix="${unbound-proto-distname}/lib">
+        <include name="*.jar" />
+      </tarfileset>
+    </tar>
+  </target>
+
+  <target name="unbound-proto-src-dist">
+
+    <tar tarfile="${unbound-proto-distname}-src.tar.gz"
+         compression="gzip">
+
+      <tarfileset mode="755"
+                  dir="."
+                  prefix="${unbound-proto-distname}">
+        <include name="bin/*.sh" />
+      </tarfileset>
+
+      <tarfileset dir="."
+                  prefix="${unbound-proto-distname}">
+        <include name="src/**/*.java" />
+        <include name="dnsjava/**" />
+        <include name="lib/*.jar" />
+        <include name="etc/*.properties" />
+        <include name="etc/named.ca" />
+        <include name="etc/trust_anchors" />
+        <include name="licenses/**" />
+        <include name="VERSION" />
+        <include name="README" />
+        <include name="build.xml" />
+        <exclude name="bin/**" />
+      </tarfileset>
+    </tar>
+
+  </target>
+
+  <target name="sign-dist" 
+          depends="unbound-proto-dist, unbound-proto-src-dist">
+    <exec executable="gpg">
+      <arg value="-a" />
+      <arg value="-s" />
+      <arg value="--detach-sig" />
+      <arg path="${unbound-proto-distname}.tar.gz" />
+    </exec>
+    <exec executable="gpg">
+      <arg value="-a" />
+      <arg value="-s" />
+      <arg value="--detach-sig" />
+      <arg path="${unbound-proto-distname}-src.tar.gz" />
+    </exec>
+    
+  </target>
+
+  <target name="flatten-jar-libs">
+
+    <mkdir dir="${build.dir}/jar" />
+
+    <unjar dest="${build.dir}/jar/">
+      <fileset dir="lib" includes="*.jar" />
+    </unjar>
+
+  </target>
+
+  <target name="unbound-resolver-jar" depends="compile, flatten-jar-libs">
+    
+    <!-- this attempts to make a single runnable jar file for the
+         validating iterative resolver version of this project -->
+    
+    <jar destfile="unbound-resolver.jar">
+      <fileset dir="${build.dest}"
+               includes="se/rfc/unbound/,org/xbill/DNS/" />
+      <fileset dir="${build.dir}/jar"
+               includes="**" />
+      <manifest>
+        <attribute name="Main-Class" value="se.rfc.unbound.server.Server" />
+      </manifest>
+    </jar>
+
+  </target>
+
+  <target name="unbound-digtest-jar" depends="compile, flatten-jar-libs">
+
+    <jar destfile="unbound-digtest.jar">
+      <fileset dir="${build.dest}"
+               includes="se/rfc/unbound/,org/xbill/DNS/" />
+      <fileset dir="${build.dir}/jar"
+               includes="**" />
+      <manifest>
+        <attribute name="Main-Class" value="se.rfc.unbound.cl.DigTest" />
+      </manifest>
+    </jar>
+
+  </target>
+
+  <!-- CLEAN targets -->
+
+  <target name="clean-unbound-proto" depends="prepare-env">
+    <delete dir="${build.dest}" />
+    <delete dir="${build.dir}/jar" />
+    <delete file="${build.lib.dest}/*.jar" />
+  </target>
+
+  <target name="clean-unbound-tests" depends="prepare-env"
+          if="test.present">
+    <delete dir="${test.dir}/${build.dest}" />
+    <delete dir="${test.reports}" />
+  </target>
+
+  <target name="clean-dist" depends="prepare-env">
+    <delete>
+      <fileset dir="." includes="*.tar.gz" />
+    </delete>
+  </target>
+
+
+  <!-- MASTER targets -->
+  <target name="compile"
+          depends="usage, unbound-proto-jar">
+  </target>
+
+  <target name="docs"
+          depends="javadoc-unbound-proto">
+  </target>
+
+  <target name="test"
+          depends="run-tests"
+          if="test.present">
+  </target>
+
+  <target name="dist"
+          depends="usage, unbound-proto-dist, unbound-proto-src-dist">
+  </target>
+
+  <target name="clean" 
+          depends="usage, clean-unbound-proto, clean-unbound-tests, clean-dist">
+  </target>
+
+  <!-- USAGE target -->
+  <target name="usage" depends="prepare-env">
+    <echo message=" " />
+    <echo message="Unbound Prototype v. ${version} Build System" />
+    <echo message="--------------------------------------" />
+    <echo message="Available Targets:" />
+    <echo message="  compile (default) - compiles the source code" />
+    <echo message="  test              - run the unit tests" />
+    <echo message="  dist              - create the distribution files" />
+    <echo message="  clean             - delete class files" />
+    <echo message="  usage             - this help message" />
+    <echo message=" " />
+  </target>
+
+</project>
+
