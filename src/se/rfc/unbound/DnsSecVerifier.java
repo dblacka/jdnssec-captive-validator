@@ -28,13 +28,12 @@
  *
  */
 
-package se.rfc.unbound.validator;
+package se.rfc.unbound;
 
 import java.util.*;
 import java.io.*;
 import java.security.*;
 
-import org.apache.log4j.Logger;
 import org.xbill.DNS.*;
 import org.xbill.DNS.security.*;
 
@@ -43,11 +42,8 @@ import se.rfc.unbound.Util;
 
 /**
  * A class for performing basic DNSSEC verification. The DNSJAVA package
- * contains a similar class. This is a reimplementation that allows us to have
+ * contains a similar class. This is a re-implementation that allows us to have
  * finer control over the validation process.
- * 
- * @author davidb
- * @version $Revision$
  */
 public class DnsSecVerifier
 {
@@ -60,8 +56,6 @@ public class DnsSecVerifier
    * algorithm identifiers.
    */
   private HashMap mAlgorithmMap;
-
-  private Logger  log = Logger.getLogger(this.getClass());
 
   private static class AlgEntry
   {
@@ -121,15 +115,15 @@ public class DnsSecVerifier
 
       if (!mAlgorithmMap.containsKey(alg_orig))
       {
-        log.warn("Unable to alias " + alg_alias + " to unknown algorithm "
-            + alg_orig);
+//        log.warn("Unable to alias " + alg_alias + " to unknown algorithm "
+//            + alg_orig);
         continue;
       }
 
       if (mAlgorithmMap.containsKey(alg_alias))
       {
-        log.warn("Algorithm alias " + alg_alias
-            + " is already defined and cannot be redefined");
+//        log.warn("Algorithm alias " + alg_alias
+//            + " is already defined and cannot be redefined");
         continue;
       }
 
@@ -141,11 +135,11 @@ public class DnsSecVerifier
     {
       Integer alg = (Integer) i.next();
       AlgEntry entry = (AlgEntry) mAlgorithmMap.get(alg);
-      if (entry == null) 
-        log.warn("DNSSEC alg " + alg + " has a null entry!");
-      else
-        log.debug("DNSSEC alg " + alg + " maps to " + entry.jcaName
-            + " (" + entry.dnssecAlg + ")");
+//      if (entry == null) 
+//        log.warn("DNSSEC alg " + alg + " has a null entry!");
+//      else
+//        log.debug("DNSSEC alg " + alg + " maps to " + entry.jcaName
+//            + " (" + entry.dnssecAlg + ")");
     }
   }
 
@@ -163,9 +157,9 @@ public class DnsSecVerifier
   {
     if (!signature.getSigner().equals(dnskey_rrset.getName()))
     {
-      log.trace("findKey: could not find appropriate key because "
-          + "incorrect keyset was supplied. Wanted: " + signature.getSigner()
-          + ", got: " + dnskey_rrset.getName());
+//      log.trace("findKey: could not find appropriate key because "
+//          + "incorrect keyset was supplied. Wanted: " + signature.getSigner()
+//          + ", got: " + dnskey_rrset.getName());
       return null;
     }
 
@@ -185,8 +179,8 @@ public class DnsSecVerifier
 
     if (res.size() == 0)
     {
-      log.trace("findKey: could not find a key matching "
-          + "the algorithm and footprint in supplied keyset. ");
+//      log.trace("findKey: could not find a key matching "
+//          + "the algorithm and footprint in supplied keyset. ");
       return null;
     }
     return res;
@@ -206,12 +200,12 @@ public class DnsSecVerifier
     if (rrset == null || sigrec == null) return DNSSEC.Failed;
     if (!rrset.getName().equals(sigrec.getName()))
     {
-      log.debug("Signature name does not match RRset name");
+//      log.debug("Signature name does not match RRset name");
       return SecurityStatus.BOGUS;
     }
     if (rrset.getType() != sigrec.getTypeCovered())
     {
-      log.debug("Signature type does not match RRset type");
+//      log.debug("Signature type does not match RRset type");
       return SecurityStatus.BOGUS;
     }
 
@@ -220,14 +214,14 @@ public class DnsSecVerifier
     Date expire = sigrec.getExpire();
     if (now.before(start))
     {
-      log.debug("Signature is not yet valid");
+//      log.debug("Signature is not yet valid");
       return SecurityStatus.BOGUS;
     }
 
     if (now.after(expire))
     {
-      log.debug("Signature has expired (now = " + now + ", sig expires = "
-          + expire);
+//      log.debug("Signature has expired (now = " + now + ", sig expires = "
+//          + expire);
       return SecurityStatus.BOGUS;
     }
 
@@ -271,8 +265,8 @@ public class DnsSecVerifier
 
       if (pk == null)
       {
-        log.warn("Could not convert DNSKEY record to a JCA public key: "
-            + key);
+//        log.warn("Could not convert DNSKEY record to a JCA public key: "
+//            + key);
         return SecurityStatus.UNCHECKED;
       }
 
@@ -294,20 +288,20 @@ public class DnsSecVerifier
       }
       if (!signer.verify(sig))
       {
-        log.info("Signature failed to verify cryptographically");
-        log.debug("Failed signature: " + sigrec);
+//        log.info("Signature failed to verify cryptographically");
+//        log.debug("Failed signature: " + sigrec);
         return SecurityStatus.BOGUS;
       }
-      log.trace("Signature verified: " + sigrec);
+//      log.trace("Signature verified: " + sigrec);
       return SecurityStatus.SECURE;
     }
     catch (IOException e)
     {
-      log.error("I/O error", e);
+//      log.error("I/O error", e);
     }
     catch (GeneralSecurityException e)
     {
-      log.error("Security error", e);
+//      log.error("Security error", e);
     }
 
     // FIXME: Since I'm not sure what would cause an exception here (failure
@@ -334,7 +328,7 @@ public class DnsSecVerifier
 
     if (keys == null)
     {
-      log.trace("could not find appropriate key");
+//      log.trace("could not find appropriate key");
       return SecurityStatus.BOGUS;
     }
 
@@ -365,7 +359,7 @@ public class DnsSecVerifier
 
     if (!i.hasNext())
     {
-      log.info("RRset failed to verify due to lack of signatures");
+//      log.info("RRset failed to verify due to lack of signatures");
       return SecurityStatus.BOGUS;
     }
 
@@ -378,7 +372,7 @@ public class DnsSecVerifier
       if (res == SecurityStatus.SECURE) return res;
     }
 
-    log.info("RRset failed to verify: all signatures were BOGUS");
+//    log.info("RRset failed to verify: all signatures were BOGUS");
     return SecurityStatus.BOGUS;
   }
 
@@ -398,7 +392,7 @@ public class DnsSecVerifier
     Iterator i = rrset.sigs();
     if (!i.hasNext())
     {
-      log.info("RRset failed to verify due to lack of signatures");
+//      log.info("RRset failed to verify due to lack of signatures");
       return SecurityStatus.BOGUS;
     }
 
@@ -414,7 +408,7 @@ public class DnsSecVerifier
       if (res == SecurityStatus.SECURE) return res;
     }
 
-    log.info("RRset failed to verify: all signatures were BOGUS");
+//    log.info("RRset failed to verify: all signatures were BOGUS");
     return SecurityStatus.BOGUS;
   }
 
@@ -455,7 +449,7 @@ public class DnsSecVerifier
       AlgEntry entry = (AlgEntry) mAlgorithmMap.get(new Integer(algorithm));
       if (entry == null)
       {
-        log.info("DNSSEC algorithm " + algorithm + " not recognized.");
+//        log.info("DNSSEC algorithm " + algorithm + " not recognized.");
         return null;
       }
       // TODO: should we cache the instance?
@@ -463,7 +457,7 @@ public class DnsSecVerifier
     }
     catch (NoSuchAlgorithmException e)
     {
-      log.error("error getting Signature object", e);
+//      log.error("error getting Signature object", e);
     }
 
     return s;

@@ -32,13 +32,11 @@ package se.rfc.unbound;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
-import org.apache.log4j.Logger;
 import org.xbill.DNS.*;
 import org.xbill.DNS.utils.base32;
 
-import se.rfc.unbound.validator.DnsSecVerifier;
-import se.rfc.unbound.validator.SignUtils;
-import se.rfc.unbound.validator.SignUtils.ByteArrayComparator;
+import se.rfc.unbound.SignUtils.ByteArrayComparator;
+
 
 public class NSEC3ValUtils
 {
@@ -49,8 +47,6 @@ public class NSEC3ValUtils
   // parameters. The idea is to hash and compare for each group independently,
   // instead of having to skip NSEC3 RRs with the wrong parameters.
 
-  // The logger to use in static methods.
-  private static Logger st_log         = Logger.getLogger(NSEC3ValUtils.class);
 
   private static Name   asterisk_label = Name.fromConstantString("*");
 
@@ -204,7 +200,7 @@ public class NSEC3ValUtils
     }
     catch (NoSuchAlgorithmException e)
     {
-      st_log.debug("Did not recognize hash algorithm: " + params.alg);
+//      st_log.debug("Did not recognize hash algorithm: " + params.alg);
       return null;
     }
   }
@@ -391,8 +387,8 @@ public class NSEC3ValUtils
 
     if (candidate == null)
     {
-      st_log.debug("proveClosestEncloser: could not find a "
-          + "candidate for the closest encloser.");
+//      st_log.debug("proveClosestEncloser: could not find a "
+//          + "candidate for the closest encloser.");
       return null;
     }
 
@@ -400,7 +396,7 @@ public class NSEC3ValUtils
     {
       if (proveDoesNotExist)
       {
-        st_log.debug("proveClosestEncloser: proved that qname existed!");
+//        st_log.debug("proveClosestEncloser: proved that qname existed!");
         return null;
       }
       // otherwise, we need to nothing else to prove that qname is its own
@@ -414,13 +410,13 @@ public class NSEC3ValUtils
     if (candidate.ce_nsec3.hasType(Type.NS)
         && !candidate.ce_nsec3.hasType(Type.SOA))
     {
-      st_log.debug("proveClosestEncloser: closest encloser "
-          + "was a delegation!");
+//      st_log.debug("proveClosestEncloser: closest encloser "
+//          + "was a delegation!");
       return null;
     }
     if (candidate.ce_nsec3.hasType(Type.DNAME))
     {
-      st_log.debug("proveClosestEncloser: closest encloser was a DNAME!");
+//      st_log.debug("proveClosestEncloser: closest encloser was a DNAME!");
       return null;
     }
 
@@ -435,8 +431,8 @@ public class NSEC3ValUtils
         bac);
     if (candidate.nc_nsec3 == null)
     {
-      st_log.debug("Could not find proof that the "
-          + "closest encloser was the closest encloser");
+//      st_log.debug("Could not find proof that the "
+//          + "closest encloser was the closest encloser");
       return null;
     }
 
@@ -524,8 +520,8 @@ public class NSEC3ValUtils
     NSEC3Parameters nsec3params = nsec3Parameters(nsec3s);
     if (nsec3params == null)
     {
-      st_log.debug("Could not find a single set of " +
-          "NSEC3 parameters (multiple parameters present).");
+//      st_log.debug("Could not find a single set of " +
+//          "NSEC3 parameters (multiple parameters present).");
       return false;
     }
     
@@ -542,7 +538,7 @@ public class NSEC3ValUtils
 
     if (ce == null)
     {
-      st_log.debug("proveNameError: failed to prove a closest encloser.");
+//      st_log.debug("proveNameError: failed to prove a closest encloser.");
       return false;
     }
 
@@ -557,8 +553,8 @@ public class NSEC3ValUtils
         bac);
     if (nsec3 == null)
     {
-      st_log.debug("proveNameError: could not prove that the "
-          + "applicable wildcard did not exist.");
+//      st_log.debug("proveNameError: could not prove that the "
+//          + "applicable wildcard did not exist.");
       return false;
     }
 
@@ -653,8 +649,8 @@ public class NSEC3ValUtils
     NSEC3Parameters nsec3params = nsec3Parameters(nsec3s);
     if (nsec3params == null)
     {
-      st_log.debug("could not find a single set of "
-          + "NSEC3 parameters (multiple parameters present)");
+//      st_log.debug("could not find a single set of "
+//          + "NSEC3 parameters (multiple parameters present)");
       return false;
     }
     ByteArrayComparator bac = new ByteArrayComparator();
@@ -669,13 +665,13 @@ public class NSEC3ValUtils
     {
       if (nsec3.hasType(qtype))
       {
-        st_log.debug("proveNodata: Matching NSEC3 proved that type existed!");
+//        st_log.debug("proveNodata: Matching NSEC3 proved that type existed!");
         return false;
       }
       if (nsec3.hasType(Type.CNAME))
       {
-        st_log.debug("proveNodata: Matching NSEC3 proved "
-            + "that a CNAME existed!");
+//        st_log.debug("proveNodata: Matching NSEC3 proved "
+//            + "that a CNAME existed!");
         return false;
       }
       return true;
@@ -695,8 +691,8 @@ public class NSEC3ValUtils
     // problem.
     if (ce == null)
     {
-      st_log.debug("proveNodata: did not match qname, "
-          + "nor found a proven closest encloser.");
+//      st_log.debug("proveNodata: did not match qname, "
+//          + "nor found a proven closest encloser.");
       return false;
     }
 
@@ -714,7 +710,7 @@ public class NSEC3ValUtils
     {
       if (nsec3.hasType(qtype))
       {
-        st_log.debug("proveNodata: matching wildcard had qtype!");
+//        st_log.debug("proveNodata: matching wildcard had qtype!");
         return false;
       }
       return true;
@@ -723,16 +719,16 @@ public class NSEC3ValUtils
     // Case 5.
     if (qtype != Type.DS)
     {
-      st_log.debug("proveNodata: could not find matching NSEC3, "
-          + "nor matching wildcard, and qtype is not DS -- no more options.");
+//      st_log.debug("proveNodata: could not find matching NSEC3, "
+//          + "nor matching wildcard, and qtype is not DS -- no more options.");
       return false;
     }
 
     // We need to make sure that the covering NSEC3 is opt-in.
     if (!ce.nc_nsec3.getOptInFlag())
     {
-      st_log.debug("proveNodata: covering NSEC3 was not "
-          + "opt-in in an opt-in DS NOERROR/NODATA case.");
+//      st_log.debug("proveNodata: covering NSEC3 was not "
+//          + "opt-in in an opt-in DS NOERROR/NODATA case.");
       return false;
     }
 
@@ -758,7 +754,7 @@ public class NSEC3ValUtils
     NSEC3Parameters nsec3params = nsec3Parameters(nsec3s);
     if (nsec3params == null) 
     {
-      st_log.debug("couldn't find a single set of NSEC3 parameters (multiple parameters present).");
+//      st_log.debug("couldn't find a single set of NSEC3 parameters (multiple parameters present).");
       return false;
     }
     
@@ -779,10 +775,10 @@ public class NSEC3ValUtils
 
     if (candidate.nc_nsec3 == null)
     {
-      st_log.debug("proveWildcard: did not find a covering NSEC3 "
-          + "that covered the next closer name to " + qname + " from "
-          + candidate.closestEncloser + " (derived from wildcard " + wildcard
-          + ")");
+//      st_log.debug("proveWildcard: did not find a covering NSEC3 "
+//          + "that covered the next closer name to " + qname + " from "
+//          + candidate.closestEncloser + " (derived from wildcard " + wildcard
+//          + ")");
       return false;
     }
 
@@ -812,8 +808,8 @@ public class NSEC3ValUtils
     NSEC3Parameters nsec3params = nsec3Parameters(nsec3s);
     if (nsec3params == null)
     {
-      st_log.debug("couldn't find a single set of " +
-          "NSEC3 parameters (multiple parameters present).");
+//      st_log.debug("couldn't find a single set of " +
+//          "NSEC3 parameters (multiple parameters present).");
       return SecurityStatus.BOGUS;      
     }
     ByteArrayComparator bac = new ByteArrayComparator();

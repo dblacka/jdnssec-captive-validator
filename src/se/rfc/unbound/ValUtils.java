@@ -28,16 +28,13 @@
  *
  */
 
-package se.rfc.unbound.validator;
+package se.rfc.unbound;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Iterator;
 
-import org.apache.log4j.Logger;
 import org.xbill.DNS.*;
-
-import se.rfc.unbound.*;
 
 /**
  * This is a collection of routines encompassing the logic of validating
@@ -73,9 +70,6 @@ public class ValUtils
 
   /** A response to a qtype=ANY query. */
   public static final int ANY       = 6;
-
-  private Logger          log       = Logger.getLogger(this.getClass());
-  private static Logger   st_log    = Logger.getLogger(ValUtils.class);
 
   /** A local copy of the verifier object. */
   private DnsSecVerifier  mVerifier;
@@ -131,7 +125,7 @@ public class ValUtils
       if (rrsets[i].getType() == Type.CNAME) return CNAME;
     }
 
-    st_log.warn("Failed to classify response message:\n" + m);
+//    st_log.warn("Failed to classify response message:\n" + m);
     return UNKNOWN;
   }
 
@@ -145,10 +139,10 @@ public class ValUtils
    * @return a signer name, if the response is signed (even partially), or
    *         null if the response isn't signed.
    */
-  public Name findSigner(SMessage m, Request request)
+  public Name findSigner(SMessage m)
   {
     int subtype = classifyResponse(m);
-    Name qname = request.getQName();
+    Name qname = m.getQName();
 
     SRRset[] rrsets;
 
@@ -182,8 +176,8 @@ public class ValUtils
         }
         return null;
       default :
-        log.debug("findSigner: could not find signer name "
-            + "for unknown type response.");
+//        log.debug("findSigner: could not find signer name "
+//            + "for unknown type response.");
         return null;
     }
   }
@@ -222,87 +216,87 @@ public class ValUtils
    *         this sort of thing is checked before fetching the matching DNSKEY
    *         rrset.
    */
-  public KeyEntry verifyNewDNSKEYs(SRRset dnskey_rrset, SRRset ds_rrset)
-  {
-    if (!dnskey_rrset.getName().equals(ds_rrset.getName()))
-    {
-      log.debug("DNSKEY RRset did not match DS RRset by name!");
-      return KeyEntry
-          .newBadKeyEntry(ds_rrset.getName(), ds_rrset.getDClass());
-    }
-
-    // as long as this is false, we can consider this DS rrset to be
-    // equivalent to no DS rrset.
-    boolean hasUsefulDS = false;
-
-    for (Iterator i = ds_rrset.rrs(); i.hasNext();)
-    {
-      DSRecord ds = (DSRecord) i.next();
-
-      // Check to see if we can understand this DS.
-      if (!supportsDigestID(ds.getDigestID())
-          || !mVerifier.supportsAlgorithm(ds.getAlgorithm()))
-      {
-        continue;
-      }
-
-      // Once we see a single DS with a known digestID and algorithm, we
-      // cannot return INSECURE (with a "null" KeyEntry).
-      hasUsefulDS = true;
-
-      DNSKEY : for (Iterator j = dnskey_rrset.rrs(); j.hasNext();)
-      {
-        DNSKEYRecord dnskey = (DNSKEYRecord) j.next();
-
-        // Skip DNSKEYs that don't match the basic criteria.
-        if (ds.getFootprint() != dnskey.getFootprint()
-            || ds.getAlgorithm() != dnskey.getAlgorithm())
-        {
-          continue;
-        }
-
-        // Convert the candidate DNSKEY into a hash using the same DS hash
-        // algorithm.
-        byte[] key_hash = calculateDSHash(dnskey, ds.getDigestID());
-        byte[] ds_hash = ds.getDigest();
-
-        // see if there is a length mismatch (unlikely)
-        if (key_hash.length != ds_hash.length)
-        {
-          continue DNSKEY;
-        }
-
-        for (int k = 0; k < key_hash.length; k++)
-        {
-          if (key_hash[k] != ds_hash[k]) continue DNSKEY;
-        }
-
-        // Otherwise, we have a match! Make sure that the DNSKEY verifies
-        // *with this key*.
-        byte res = mVerifier.verify(dnskey_rrset, dnskey);
-        if (res == SecurityStatus.SECURE)
-        {
-          log.trace("DS matched DNSKEY.");
-          dnskey_rrset.setSecurityStatus(SecurityStatus.SECURE);
-          return KeyEntry.newKeyEntry(dnskey_rrset);
-        }
-        // If it didn't validate with the DNSKEY, try the next one!
-      }
-    }
-
-    // None of the DS's worked out.
-
-    // If no DSs were understandable, then this is OK.
-    if (!hasUsefulDS)
-    {
-      log.debug("No usuable DS records were found -- treating as insecure.");
-      return KeyEntry.newNullKeyEntry(ds_rrset.getName(), ds_rrset
-          .getDClass(), ds_rrset.getTTL());
-    }
-    // If any were understandable, then it is bad.
-    log.debug("Failed to match any usable DS to a DNSKEY.");
-    return KeyEntry.newBadKeyEntry(ds_rrset.getName(), ds_rrset.getDClass());
-  }
+//  public KeyEntry verifyNewDNSKEYs(SRRset dnskey_rrset, SRRset ds_rrset)
+//  {
+//    if (!dnskey_rrset.getName().equals(ds_rrset.getName()))
+//    {
+////      log.debug("DNSKEY RRset did not match DS RRset by name!");
+//      return KeyEntry
+//          .newBadKeyEntry(ds_rrset.getName(), ds_rrset.getDClass());
+//    }
+//
+//    // as long as this is false, we can consider this DS rrset to be
+//    // equivalent to no DS rrset.
+//    boolean hasUsefulDS = false;
+//
+//    for (Iterator i = ds_rrset.rrs(); i.hasNext();)
+//    {
+//      DSRecord ds = (DSRecord) i.next();
+//
+//      // Check to see if we can understand this DS.
+//      if (!supportsDigestID(ds.getDigestID())
+//          || !mVerifier.supportsAlgorithm(ds.getAlgorithm()))
+//      {
+//        continue;
+//      }
+//
+//      // Once we see a single DS with a known digestID and algorithm, we
+//      // cannot return INSECURE (with a "null" KeyEntry).
+//      hasUsefulDS = true;
+//
+//      DNSKEY : for (Iterator j = dnskey_rrset.rrs(); j.hasNext();)
+//      {
+//        DNSKEYRecord dnskey = (DNSKEYRecord) j.next();
+//
+//        // Skip DNSKEYs that don't match the basic criteria.
+//        if (ds.getFootprint() != dnskey.getFootprint()
+//            || ds.getAlgorithm() != dnskey.getAlgorithm())
+//        {
+//          continue;
+//        }
+//
+//        // Convert the candidate DNSKEY into a hash using the same DS hash
+//        // algorithm.
+//        byte[] key_hash = calculateDSHash(dnskey, ds.getDigestID());
+//        byte[] ds_hash = ds.getDigest();
+//
+//        // see if there is a length mismatch (unlikely)
+//        if (key_hash.length != ds_hash.length)
+//        {
+//          continue DNSKEY;
+//        }
+//
+//        for (int k = 0; k < key_hash.length; k++)
+//        {
+//          if (key_hash[k] != ds_hash[k]) continue DNSKEY;
+//        }
+//
+//        // Otherwise, we have a match! Make sure that the DNSKEY verifies
+//        // *with this key*.
+//        byte res = mVerifier.verify(dnskey_rrset, dnskey);
+//        if (res == SecurityStatus.SECURE)
+//        {
+////          log.trace("DS matched DNSKEY.");
+//          dnskey_rrset.setSecurityStatus(SecurityStatus.SECURE);
+//          return KeyEntry.newKeyEntry(dnskey_rrset);
+//        }
+//        // If it didn't validate with the DNSKEY, try the next one!
+//      }
+//    }
+//
+//    // None of the DS's worked out.
+//
+//    // If no DSs were understandable, then this is OK.
+//    if (!hasUsefulDS)
+//    {
+////      log.debug("No usuable DS records were found -- treating as insecure.");
+//      return KeyEntry.newNullKeyEntry(ds_rrset.getName(), ds_rrset
+//          .getDClass(), ds_rrset.getTTL());
+//    }
+//    // If any were understandable, then it is bad.
+////    log.debug("Failed to match any usable DS to a DNSKEY.");
+//    return KeyEntry.newBadKeyEntry(ds_rrset.getName(), ds_rrset.getDClass());
+//  }
 
   /**
    * Given a DNSKEY record, generate the DS record from it.
@@ -327,18 +321,17 @@ public class ValUtils
           md = MessageDigest.getInstance("SHA");
           return md.digest(os.toByteArray());
         case DSRecord.SHA256_DIGEST_ID:
-          SHA256 sha = new SHA256();
-          sha.setData(os.toByteArray());
-          return sha.getDigest();
+          md = MessageDigest.getInstance("SHA256");
+          return md.digest(os.toByteArray());
         default :
-          st_log.warn("Unknown DS algorithm: " + ds_alg);
+//          st_log.warn("Unknown DS algorithm: " + ds_alg);
           return null;
       }
 
     }
     catch (NoSuchAlgorithmException e)
     {
-      st_log.error("Error using DS algorithm: " + ds_alg, e);
+//      st_log.error("Error using DS algorithm: " + ds_alg, e);
       return null;
     }
   }
@@ -379,7 +372,7 @@ public class ValUtils
    * @param rrset The SRRset to update.
    * @param security The security status.
    */
-  public static void setRRsetSecurity(SRRset rrset, int security)
+  public static void setRRsetSecurity(SRRset rrset, byte security)
   {
     if (rrset == null) return;
 
@@ -405,7 +398,7 @@ public class ValUtils
    * (ans_rrset.getSecurityStatus() != SecurityStatus.SECURE) { return; }
    * key_rrset = ke.getRRset();
    */
-  public static void setMessageSecurity(SMessage m, int security)
+  public static void setMessageSecurity(SMessage m, byte security)
   {
     if (m == null) return;
 
@@ -441,21 +434,21 @@ public class ValUtils
 
     if (rrset.getSecurityStatus() == SecurityStatus.SECURE)
     {
-      log.trace("verifySRRset: rrset <" + rrset_name
-          + "> previously found to be SECURE");
+//      log.trace("verifySRRset: rrset <" + rrset_name
+//          + "> previously found to be SECURE");
       return SecurityStatus.SECURE;
     }
 
     byte status = mVerifier.verify(rrset, key_rrset);
     if (status != SecurityStatus.SECURE)
     {
-      log.debug("verifySRRset: rrset <" + rrset_name + "> found to be BAD");
+//      log.debug("verifySRRset: rrset <" + rrset_name + "> found to be BAD");
       status = SecurityStatus.BOGUS;
     }
-    else
-    {
-      log.trace("verifySRRset: rrset <" + rrset_name + "> found to be SECURE");
-    }
+//    else
+//    {
+//      log.trace("verifySRRset: rrset <" + rrset_name + "> found to be SECURE");
+//    }
 
     rrset.setSecurityStatus(status);
     return status;
@@ -477,6 +470,12 @@ public class ValUtils
     return false;
   }
 
+  private static RRSIGRecord rrsetFirstSig(RRset rrset) {
+      for (Iterator i = rrset.sigs(); i.hasNext(); ) {
+          return (RRSIGRecord) i.next();
+      }
+      return null;
+  }
   /**
    * Determine by looking at a signed RRset whether or not the rrset name was
    * the result of a wildcard expansion.
@@ -488,7 +487,7 @@ public class ValUtils
   public static boolean rrsetIsWildcardExpansion(RRset rrset)
   {
     if (rrset == null) return false;
-    RRSIGRecord rrsig = (RRSIGRecord) rrset.firstSig();
+    RRSIGRecord rrsig = rrsetFirstSig(rrset);
 
     if (rrset.getName().labels() - 1 > rrsig.getLabels())
     {
@@ -510,7 +509,7 @@ public class ValUtils
   public static Name rrsetWildcard(RRset rrset)
   {
     if (rrset == null) return null;
-    RRSIGRecord rrsig = (RRSIGRecord) rrset.firstSig();
+    RRSIGRecord rrsig = rrsetFirstSig(rrset);
 
     // if the RRSIG label count is shorter than the number of actual labels,
     // then this rrset was synthesized from a wildcard.

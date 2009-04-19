@@ -271,7 +271,13 @@ public class SMessage
     h.setRcode(mHeader.getRcode());
     for (int i = 0; i < 16; i++)
     {
-      if (Flags.isFlag(i)) h.setFlag(i, mHeader.getFlag(i));
+      if (Flags.isFlag(i)) {
+          if (mHeader.getFlag(i)) {
+              h.setFlag(i);
+          } else {
+              h.unsetFlag(i);
+          }
+      }
     }
 
     // Add all the records. -- this will set the counts correctly in the

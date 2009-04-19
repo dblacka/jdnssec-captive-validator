@@ -37,7 +37,7 @@ import org.xbill.DNS.*;
 public class SRRset extends RRset
 {
   private SecurityStatus mSecurityStatus;
-
+  
   /** Create a new, blank SRRset. */
   public SRRset()
   {
@@ -73,23 +73,23 @@ public SRRset(RRset r)
    *          contained RRsig records as well.
    * @return The cloned SRRset.
    */
-  public SRRset cloneSRRset(long withNewTTL)
-  {
-    SRRset nr = new SRRset();
-
-    for (Iterator i = rrs(); i.hasNext();)
-    {
-      nr.addRR(((Record) i.next()).withTTL(withNewTTL));
-    }
-    for (Iterator i = sigs(); i.hasNext();)
-    {
-      nr.addRR(((Record) i.next()).withTTL(withNewTTL));
-    }
-
-    nr.mSecurityStatus = mSecurityStatus;
-
-    return nr;
-  }
+//  public SRRset cloneSRRset(long withNewTTL)
+//  {
+//    SRRset nr = new SRRset();
+//
+//    for (Iterator i = rrs(); i.hasNext();)
+//    {
+//      nr.addRR(((Record) i.next()).withTTL(withNewTTL));
+//    }
+//    for (Iterator i = sigs(); i.hasNext();)
+//    {
+//      nr.addRR(((Record) i.next()).withTTL(withNewTTL));
+//    }
+//
+//    nr.mSecurityStatus = mSecurityStatus;
+//
+//    return nr;
+//  }
 
   public SRRset cloneSRRsetNoSigs()
   {
@@ -103,6 +103,8 @@ public SRRset(RRset r)
     
     return nr;
   }
+  
+  
   /**
    * Return the current security status (generally: UNCHECKED, BOGUS, or
    * SECURE).
@@ -125,11 +127,19 @@ public SRRset(RRset r)
    * Set the current security status for this SRRset. This status will be
    * shared amongst all copies of this SRRset (created with cloneSRRset())
    */
-  public void setSecurityStatus(int status)
+  public void setSecurityStatus(byte status)
   {
     mSecurityStatus.setStatus(status);
   }
 
+  public int totalSize() {
+      int num_sigs = 0;
+      for (Iterator i = sigs(); i.hasNext(); ) {
+          num_sigs++;
+      }
+      return size() + num_sigs;
+  }
+  
   /**
    * @return The total number of records (data + sigs) in the SRRset.
    */
@@ -138,6 +148,12 @@ public SRRset(RRset r)
     return totalSize();
   }
 
+  public RRSIGRecord firstSig() {
+      for (Iterator i = sigs(); i.hasNext(); ) {
+          return (RRSIGRecord) i.next();
+      }
+      return null;
+  }
   /**
    * @return true if this RRset has RRSIG records that cover data records.
    *         (i.e., RRSIG SRRsets return false)
@@ -158,12 +174,12 @@ public SRRset(RRset r)
     return sig.getSigner();
   }
   
-  public void setTTL(long ttl)
-  {
-    if (ttl < 0)
-    {
-      throw new IllegalArgumentException("ttl can't be less than zero, stupid! was " + ttl);
-    }
-    super.setTTL(ttl);
-  }
+//  public void setTTL(long ttl)
+//  {
+//    if (ttl < 0)
+//    {
+//      throw new IllegalArgumentException("ttl can't be less than zero, stupid! was " + ttl);
+//    }
+//    super.setTTL(ttl);
+//  }
 }
