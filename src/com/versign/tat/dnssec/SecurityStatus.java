@@ -27,7 +27,7 @@
  *  
  */
 
-package se.rfc.unbound;
+package com.versign.tat.dnssec;
 
 /**
  * Codes for DNSSEC security statuses.

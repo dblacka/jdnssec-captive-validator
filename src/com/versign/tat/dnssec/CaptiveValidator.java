@@ -26,7 +26,7 @@
  *
  */
 
-package se.rfc.unbound;
+package com.versign.tat.dnssec;
 
 import java.io.IOException;
 import java.util.*;

@@ -28,7 +28,7 @@
  *
  */
 
-package se.rfc.unbound;
+package com.versign.tat.dnssec;
 
 import java.util.*;
 import java.io.*;
@@ -37,8 +37,9 @@ import java.security.*;
 import org.xbill.DNS.*;
 import org.xbill.DNS.security.*;
 
-import se.rfc.unbound.SecurityStatus;
-import se.rfc.unbound.Util;
+import com.versign.tat.dnssec.SecurityStatus;
+import com.versign.tat.dnssec.Util;
+
 
 /**
  * A class for performing basic DNSSEC verification. The DNSJAVA package

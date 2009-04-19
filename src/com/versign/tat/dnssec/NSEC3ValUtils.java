@@ -27,7 +27,7 @@
  *  
  */
 
-package se.rfc.unbound;
+package com.versign.tat.dnssec;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -35,7 +35,8 @@ import java.util.*;
 import org.xbill.DNS.*;
 import org.xbill.DNS.utils.base32;
 
-import se.rfc.unbound.SignUtils.ByteArrayComparator;
+import com.versign.tat.dnssec.SignUtils.ByteArrayComparator;
+
 
 
 public class NSEC3ValUtils

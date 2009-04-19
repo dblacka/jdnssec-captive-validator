@@ -28,7 +28,7 @@
  *
  */
 
-package se.rfc.unbound;
+package com.versign.tat.dnssec;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -470,11 +470,32 @@ public class ValUtils
     return false;
   }
 
-  private static RRSIGRecord rrsetFirstSig(RRset rrset) {
+  public static RRSIGRecord rrsetFirstSig(RRset rrset) {
       for (Iterator i = rrset.sigs(); i.hasNext(); ) {
           return (RRSIGRecord) i.next();
       }
       return null;
+  }
+  
+  public static Name longestCommonName(Name domain1, Name domain2) {
+    if (domain1 == null || domain2 == null) return null;
+    // for now, do this in a a fairly brute force way
+    // FIXME: convert this to direct operations on the byte[]
+    
+    int this_labels = domain1.labels();
+    int name_labels = domain2.labels();
+    
+    int l = (this_labels < name_labels) ? this_labels : name_labels;
+    for (int i = l; i > 0; i--)
+    {
+      Name n = new Name(domain2, name_labels - i);
+      if (n.equals(name, offset(this_labels - i)))
+      {
+        return n;
+      }
+    }
+    
+    return root;
   }
   /**
    * Determine by looking at a signed RRset whether or not the rrset name was

@@ -26,15 +26,16 @@
  *
  */
 
-package se.rfc.unbound;
+package com.versign.tat.dnssec;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import org.xbill.DNS.Name;
 
-import se.rfc.unbound.SRRset;
-import se.rfc.unbound.SecurityStatus;
+import com.versign.tat.dnssec.SRRset;
+import com.versign.tat.dnssec.SecurityStatus;
+
 
 /**
  *
