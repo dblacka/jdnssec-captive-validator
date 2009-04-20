@@ -1,2 +1,22 @@
+TODO
+
+* Complete CNAME response validation code.
+
+  This differs from the original Unbound code in that it can only
+  validate CNAME/DNAME chains as long as we have the exact keys for
+  each element of the chain.  The Unbound (java) version solved this
+  by requerying for each element of the CNAME chain and validating
+  each element independently (that is, it could construct a chain of
+  trust to each link separately).
+
 * Add way to report errors and validation failure conditions.
+
+  For the TAT handler, what we want is a way to fetch all of the
+  various reason why a validation failed, so it can be spit out in the
+  test results.  A globally available vector of error messages?  Pass
+  around a vector of error messages?
+
+* Create the TAT handler that uses this bit of code.
+
+
 
