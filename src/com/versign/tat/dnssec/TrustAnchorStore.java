@@ -36,52 +36,47 @@ import org.xbill.DNS.Name;
 /**
  *
  */
-public class TrustAnchorStore
-{
-  private Map<String, SRRset> mMap;
-  
-  public TrustAnchorStore()
-  {
-    mMap = null;
-  }
-  
-  private String key(Name n, int dclass)
-  {
-    return "T" + dclass + "/" + Util.nameToString(n);
-  }
-  
-  
-  public void store(SRRset rrset)
-  {
-    if (mMap == null)
-    {
-      mMap = new HashMap<String, SRRset>();
+public class TrustAnchorStore {
+    private Map<String, SRRset> mMap;
+
+    public TrustAnchorStore() {
+        mMap = null;
     }
-    String k = key(rrset.getName(), rrset.getDClass());
-    rrset.setSecurityStatus(SecurityStatus.SECURE);
-    
-    mMap.put(k, rrset);
-  }
-  
-  private SRRset lookup(String key)
-  {
-    if (mMap == null) return null;
-    return mMap.get(key);
-  }
-  
-  public SRRset find(Name n, int dclass)
-  {
-    if (mMap == null) return null;
-    
-    while (n.labels() > 0)
-    {
-      String k = key(n, dclass);
-      SRRset r = lookup(k);
-      if (r != null) return r;
-      n = new Name(n, 1);
+
+    private String key(Name n, int dclass) {
+        return "T" + dclass + "/" + Util.nameToString(n);
+    }
+
+    public void store(SRRset rrset) {
+        if (mMap == null) {
+            mMap = new HashMap<String, SRRset>();
+        }
+        String k = key(rrset.getName(), rrset.getDClass());
+        rrset.setSecurityStatus(SecurityStatus.SECURE);
+
+        mMap.put(k, rrset);
+    }
+
+    private SRRset lookup(String key) {
+        if (mMap == null) return null;
+        return mMap.get(key);
+    }
+
+    public SRRset find(Name n, int dclass) {
+        if (mMap == null) return null;
+
+        while (n.labels() > 0) {
+            String k = key(n, dclass);
+            SRRset r = lookup(k);
+            if (r != null) return r;
+            n = new Name(n, 1);
+        }
+
+        return null;
     }
     
-    return null;
-  }
-  
+    public boolean isBelowTrustAnchor(Name n, int dclass) {
+        return find(n, dclass) != null;
+    }
+
 }

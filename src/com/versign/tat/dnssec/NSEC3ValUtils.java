@@ -702,7 +702,7 @@ public class NSEC3ValUtils {
      *         delegation point, and SecurityStatus.BOGUS if the proofs don't
      *         work out.
      */
-    public static int proveNoDS(List<NSEC3Record> nsec3s, Name qname,
+    public static byte proveNoDS(List<NSEC3Record> nsec3s, Name qname,
                                 Name zonename) {
         if (nsec3s == null || nsec3s.size() == 0) return SecurityStatus.BOGUS;
 

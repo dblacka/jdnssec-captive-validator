@@ -58,27 +58,6 @@ public class ValUtils {
         THROWAWAY
         // a throwaway response (i.e., an error)
     }
-    
-//    /** Not subtyped yet. */
-//    public static final int UNTYPED   = 0;
-//
-//    /** Not a recognized subtype. */
-//    public static final int UNKNOWN   = 1;
-//
-//    /** A postive, direct, response. */
-//    public static final int POSITIVE  = 2;
-//
-//    /** A postive response, with a CNAME/DNAME chain. */
-//    public static final int CNAME     = 3;
-//
-//    /** A NOERROR/NODATA response. */
-//    public static final int NODATA    = 4;
-//
-//    /** A NXDOMAIN response. */
-//    public static final int NAMEERROR = 5;
-//
-//    /** A response to a qtype=ANY query. */
-//    public static final int ANY       = 6;
 
     /** A local copy of the verifier object. */
     private DnsSecVerifier  mVerifier;
@@ -598,7 +577,7 @@ public class ValUtils {
         return true;
     }
 
-    public static int nsecProvesNoDS(NSECRecord nsec, Name qname) {
+    public static byte nsecProvesNoDS(NSECRecord nsec, Name qname) {
         // Could check to make sure the qname is a subdomain of nsec
         int[] types = nsec.getTypes();
         if (typeMapHasType(types, Type.SOA) || typeMapHasType(types, Type.DS)) {
