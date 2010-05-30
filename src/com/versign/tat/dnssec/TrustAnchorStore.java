@@ -1,37 +1,32 @@
-/*
- * Copyright (c) 2009 VeriSign, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
- * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
- * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- */
+/***************************** -*- Java -*- ********************************\
+ *                                                                         *
+ *   Copyright (c) 2009 VeriSign, Inc. All rights reserved.                *
+ *                                                                         *
+ * This software is provided solely in connection with the terms of the    *
+ * license agreement.  Any other use without the prior express written     *
+ * permission of VeriSign is completely prohibited.  The software and      *
+ * documentation are "Commercial Items", as that term is defined in 48     *
+ * C.F.R.  section 2.101, consisting of "Commercial Computer Software" and *
+ * "Commercial Computer Software Documentation" as such terms are defined  *
+ * in 48 C.F.R. section 252.227-7014(a)(5) and 48 C.F.R. section           *
+ * 252.227-7014(a)(1), and used in 48 C.F.R. section 12.212 and 48 C.F.R.  *
+ * section 227.7202, as applicable.  Pursuant to the above and other       *
+ * relevant sections of the Code of Federal Regulations, as applicable,    *
+ * VeriSign's publications, commercial computer software, and commercial   *
+ * computer software documentation are distributed and licensed to United  *
+ * States Government end users with only those rights as granted to all    *
+ * other end users, according to the terms and conditions contained in the *
+ * license agreement(s) that accompany the products and software           *
+ * documentation.                                                          *
+ *                                                                         *
+\***************************************************************************/
 
-package com.versign.tat.dnssec;
+package com.verisign.tat.dnssec;
 
-import java.util.HashMap;
-import java.util.Map;
+import org.xbill.DNS.*;
 
-import org.xbill.DNS.Name;
+import java.util.*;
+
 
 /**
  *
@@ -51,6 +46,7 @@ public class TrustAnchorStore {
         if (mMap == null) {
             mMap = new HashMap<String, SRRset>();
         }
+
         String k = key(rrset.getName(), rrset.getDClass());
         rrset.setSecurityStatus(SecurityStatus.SECURE);
 
@@ -58,25 +54,49 @@ public class TrustAnchorStore {
     }
 
     private SRRset lookup(String key) {
-        if (mMap == null) return null;
+        if (mMap == null) {
+            return null;
+        }
+
         return mMap.get(key);
     }
 
     public SRRset find(Name n, int dclass) {
-        if (mMap == null) return null;
+        if (mMap == null) {
+            return null;
+        }
 
         while (n.labels() > 0) {
             String k = key(n, dclass);
             SRRset r = lookup(k);
-            if (r != null) return r;
+
+            if (r != null) {
+                return r;
+            }
+
             n = new Name(n, 1);
         }
 
         return null;
     }
-    
+
     public boolean isBelowTrustAnchor(Name n, int dclass) {
         return find(n, dclass) != null;
     }
 
+    public List<String> listTrustAnchors() {
+        List<String> res = new ArrayList<String>();
+
+        for (Map.Entry<String, SRRset> entry : mMap.entrySet()) {
+            for (Iterator<Record> i = entry.getValue().rrs(); i.hasNext();) {
+                DNSKEYRecord r        = (DNSKEYRecord) i.next();
+                String       key_desc = r.getName().toString() + "/" +
+                    DNSSEC.Algorithm.string(r.getAlgorithm()) + "/" +
+                    r.getFootprint();
+                res.add(key_desc);
+            }
+        }
+
+        return res;
+    }
 }

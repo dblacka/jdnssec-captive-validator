@@ -1,56 +1,49 @@
-/*
- * $Id$
- * 
- * Copyright (c) 2005 VeriSign. All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer. 2. Redistributions in
- * binary form must reproduce the above copyright notice, this list of
- * conditions and the following disclaimer in the documentation and/or other
- * materials provided with the distribution. 3. The name of the author may not
- * be used to endorse or promote products derived from this software without
- * specific prior written permission.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN
- * NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
- * TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *  
- */
+/***************************** -*- Java -*- ********************************\
+ *                                                                         *
+ *   Copyright (c) 2009 VeriSign, Inc. All rights reserved.                *
+ *                                                                         *
+ * This software is provided solely in connection with the terms of the    *
+ * license agreement.  Any other use without the prior express written     *
+ * permission of VeriSign is completely prohibited.  The software and      *
+ * documentation are "Commercial Items", as that term is defined in 48     *
+ * C.F.R.  section 2.101, consisting of "Commercial Computer Software" and *
+ * "Commercial Computer Software Documentation" as such terms are defined  *
+ * in 48 C.F.R. section 252.227-7014(a)(5) and 48 C.F.R. section           *
+ * 252.227-7014(a)(1), and used in 48 C.F.R. section 12.212 and 48 C.F.R.  *
+ * section 227.7202, as applicable.  Pursuant to the above and other       *
+ * relevant sections of the Code of Federal Regulations, as applicable,    *
+ * VeriSign's publications, commercial computer software, and commercial   *
+ * computer software documentation are distributed and licensed to United  *
+ * States Government end users with only those rights as granted to all    *
+ * other end users, according to the terms and conditions contained in the *
+ * license agreement(s) that accompany the products and software           *
+ * documentation.                                                          *
+ *                                                                         *
+\***************************************************************************/
 
-package com.versign.tat.dnssec;
+package com.verisign.tat.dnssec;
+
+import org.xbill.DNS.*;
 
 import java.util.*;
 
-import org.xbill.DNS.*;
 
 /**
  * This class represents a DNS message with resolver/validator state.
  */
 public class SMessage {
-    private Header          mHeader;
-
-    private Record          mQuestion;
-    private OPTRecord       mOPTRecord;
-    private List<SRRset>[]          mSection;
-    private SecurityStatus  mSecurityStatus;
-
-    private static SRRset[] empty_srrset_array = new SRRset[0];
+    private static SRRset [] empty_srrset_array = new SRRset[0];
+    private Header           mHeader;
+    private Record           mQuestion;
+    private OPTRecord        mOPTRecord;
+    private List<SRRset> []  mSection;
+    private SecurityStatus   mSecurityStatus;
 
     @SuppressWarnings("unchecked")
     public SMessage(Header h) {
-        mSection = (List<SRRset>[]) new List[3];
-        mHeader = h;
-        mSecurityStatus = new SecurityStatus();
+        mSection                                = (List<SRRset> []) new List[3];
+        mHeader                                 = h;
+        mSecurityStatus                         = new SecurityStatus();
     }
 
     public SMessage(int id) {
@@ -63,11 +56,11 @@ public class SMessage {
 
     public SMessage(Message m) {
         this(m.getHeader());
-        mQuestion = m.getQuestion();
-        mOPTRecord = m.getOPT();
+        mQuestion      = m.getQuestion();
+        mOPTRecord     = m.getOPT();
 
         for (int i = Section.ANSWER; i <= Section.ADDITIONAL; i++) {
-            RRset[] rrsets = m.getSectionRRsets(i);
+            RRset [] rrsets = m.getSectionRRsets(i);
 
             for (int j = 0; j < rrsets.length; j++) {
                 addRRset(rrsets[j], i);
@@ -112,8 +105,9 @@ public class SMessage {
     }
 
     public List<SRRset> getSectionList(int section) {
-        if (section <= Section.QUESTION || section > Section.ADDITIONAL)
+        if ((section <= Section.QUESTION) || (section > Section.ADDITIONAL)) {
             throw new IllegalArgumentException("Invalid section.");
+        }
 
         if (mSection[section - 1] == null) {
             mSection[section - 1] = new LinkedList<SRRset>();
@@ -123,11 +117,13 @@ public class SMessage {
     }
 
     public void addRRset(SRRset srrset, int section) {
-        if (section <= Section.QUESTION || section > Section.ADDITIONAL)
+        if ((section <= Section.QUESTION) || (section > Section.ADDITIONAL)) {
             throw new IllegalArgumentException("Invalid section");
+        }
 
         if (srrset.getType() == Type.OPT) {
             mOPTRecord = (OPTRecord) srrset.first();
+
             return;
         }
 
@@ -138,6 +134,7 @@ public class SMessage {
     public void addRRset(RRset rrset, int section) {
         if (rrset instanceof SRRset) {
             addRRset((SRRset) rrset, section);
+
             return;
         }
 
@@ -146,48 +143,59 @@ public class SMessage {
     }
 
     public void prependRRsets(List<SRRset> rrsets, int section) {
-        if (section <= Section.QUESTION || section > Section.ADDITIONAL)
+        if ((section <= Section.QUESTION) || (section > Section.ADDITIONAL)) {
             throw new IllegalArgumentException("Invalid section");
+        }
 
         List<SRRset> sectionList = getSectionList(section);
         sectionList.addAll(0, rrsets);
     }
 
-    public SRRset[] getSectionRRsets(int section) {
+    public SRRset [] getSectionRRsets(int section) {
         List<SRRset> slist = getSectionList(section);
 
-        return (SRRset[]) slist.toArray(empty_srrset_array);
+        return (SRRset []) slist.toArray(empty_srrset_array);
     }
 
-    public SRRset[] getSectionRRsets(int section, int qtype) {
+    public SRRset [] getSectionRRsets(int section, int qtype) {
         List<SRRset> slist = getSectionList(section);
 
-        if (slist.size() == 0) return new SRRset[0];
-
-        ArrayList<SRRset> result = new ArrayList<SRRset>(slist.size());
-        for (SRRset rrset : slist) {
-            if (rrset.getType() == qtype) result.add(rrset);
+        if (slist.size() == 0) {
+            return new SRRset[0];
         }
 
-        return (SRRset[]) result.toArray(empty_srrset_array);
+        ArrayList<SRRset> result = new ArrayList<SRRset>(slist.size());
+
+        for (SRRset rrset : slist) {
+            if (rrset.getType() == qtype) {
+                result.add(rrset);
+            }
+        }
+
+        return (SRRset []) result.toArray(empty_srrset_array);
     }
 
     public void deleteRRset(SRRset rrset, int section) {
         List<SRRset> slist = getSectionList(section);
 
-        if (slist.size() == 0) return;
+        if (slist.size() == 0) {
+            return;
+        }
 
         slist.remove(rrset);
     }
 
     public void clear(int section) {
-        if (section < Section.QUESTION || section > Section.ADDITIONAL)
+        if ((section < Section.QUESTION) || (section > Section.ADDITIONAL)) {
             throw new IllegalArgumentException("Invalid section.");
+        }
 
         if (section == Section.QUESTION) {
             mQuestion = null;
+
             return;
         }
+
         if (section == Section.ADDITIONAL) {
             mOPTRecord = null;
         }
@@ -219,7 +227,10 @@ public class SMessage {
     }
 
     public void setSecurityStatus(SecurityStatus s) {
-        if (s == null) return;
+        if (s == null) {
+            return;
+        }
+
         mSecurityStatus = s;
     }
 
@@ -235,6 +246,7 @@ public class SMessage {
         Header h = m.getHeader();
         h.setOpcode(mHeader.getOpcode());
         h.setRcode(mHeader.getRcode());
+
         for (int i = 0; i < 16; i++) {
             if (Flags.isFlag(i)) {
                 if (mHeader.getFlag(i)) {
@@ -247,18 +259,19 @@ public class SMessage {
 
         // Add all the records. -- this will set the counts correctly in the
         // message header.
-
         if (mQuestion != null) {
             m.addRecord(mQuestion, Section.QUESTION);
         }
 
         for (int sec = Section.ANSWER; sec <= Section.ADDITIONAL; sec++) {
             List<SRRset> slist = getSectionList(sec);
+
             for (SRRset rrset : slist) {
-                for (Iterator<Record> j = rrset.rrs(); j.hasNext(); ) {
+                for (Iterator<Record> j = rrset.rrs(); j.hasNext();) {
                     m.addRecord(j.next(), sec);
                 }
-                for (Iterator<RRSIGRecord> j = rrset.sigs(); j.hasNext(); ) {
+
+                for (Iterator<RRSIGRecord> j = rrset.sigs(); j.hasNext();) {
                     m.addRecord(j.next(), sec);
                 }
             }
@@ -273,13 +286,21 @@ public class SMessage {
 
     public int getCount(int section) {
         if (section == Section.QUESTION) {
-            return mQuestion == null ? 0 : 1;
+            return (mQuestion == null) ? 0 : 1;
         }
+
         List<SRRset> sectionList = getSectionList(section);
-        if (sectionList == null) return 0;
-        if (sectionList.size() == 0) return 0;
+
+        if (sectionList == null) {
+            return 0;
+        }
+
+        if (sectionList.size() == 0) {
+            return 0;
+        }
 
         int count = 0;
+
         for (SRRset sr : sectionList) {
             count += sr.totalSize();
         }
@@ -293,7 +314,7 @@ public class SMessage {
 
     /**
      * Find a specific (S)RRset in a given section.
-     * 
+     *
      * @param name
      *            the name of the RRset.
      * @param type
@@ -302,18 +323,20 @@ public class SMessage {
      *            the class of the RRset.
      * @param section
      *            the section to look in (ANSWER -> ADDITIONAL)
-     * 
+     *
      * @return The SRRset if found, null otherwise.
      */
     public SRRset findRRset(Name name, int type, int dclass, int section) {
-        if (section <= Section.QUESTION || section > Section.ADDITIONAL)
+        if ((section <= Section.QUESTION) || (section > Section.ADDITIONAL)) {
             throw new IllegalArgumentException("Invalid section.");
+        }
 
-        SRRset[] rrsets = getSectionRRsets(section);
+        SRRset [] rrsets = getSectionRRsets(section);
 
         for (int i = 0; i < rrsets.length; i++) {
-            if (rrsets[i].getName().equals(name) && rrsets[i].getType() == type
-                && rrsets[i].getDClass() == dclass) {
+            if (rrsets[i].getName().equals(name) &&
+                    (rrsets[i].getType() == type) &&
+                    (rrsets[i].getDClass() == dclass)) {
                 return rrsets[i];
             }
         }
@@ -324,36 +347,36 @@ public class SMessage {
     /**
      * Find an "answer" RRset. This will look for RRsets in the ANSWER section
      * that match the <qname,qtype,qclass>, taking into consideration CNAMEs.
-     * 
+     *
      * @param qname
      *            The starting search name.
      * @param qtype
      *            The search type.
      * @param qclass
      *            The search class.
-     * 
+     *
      * @return a SRRset matching the query. This SRRset may have a different
      *         name from qname, due to following a CNAME chain.
      */
     public SRRset findAnswerRRset(Name qname, int qtype, int qclass) {
-        SRRset[] srrsets = getSectionRRsets(Section.ANSWER);
+        SRRset [] srrsets = getSectionRRsets(Section.ANSWER);
 
         for (int i = 0; i < srrsets.length; i++) {
-            if (srrsets[i].getName().equals(qname)
-                && srrsets[i].getType() == Type.CNAME) {
+            if (srrsets[i].getName().equals(qname) &&
+                    (srrsets[i].getType() == Type.CNAME)) {
                 CNAMERecord cname = (CNAMERecord) srrsets[i].first();
                 qname = cname.getTarget();
+
                 continue;
             }
 
-            if (srrsets[i].getName().equals(qname)
-                && srrsets[i].getType() == qtype
-                && srrsets[i].getDClass() == qclass) {
+            if (srrsets[i].getName().equals(qname) &&
+                    (srrsets[i].getType() == qtype) &&
+                    (srrsets[i].getDClass() == qclass)) {
                 return srrsets[i];
             }
         }
 
         return null;
     }
-
 }

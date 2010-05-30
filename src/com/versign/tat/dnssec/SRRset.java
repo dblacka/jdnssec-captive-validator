@@ -1,35 +1,32 @@
-/*
- * Copyright (c) 2009 VeriSign. All rights reserved.
- * 
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are met:
- * 
- * 1. Redistributions of source code must retain the above copyright notice,
- * this list of conditions and the following disclaimer. 2. Redistributions in
- * binary form must reproduce the above copyright notice, this list of
- * conditions and the following disclaimer in the documentation and/or other
- * materials provided with the distribution. 3. The name of the author may not
- * be used to endorse or promote products derived from this software without
- * specific prior written permission.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
- * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN
- * NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
- * TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *  
- */
+/***************************** -*- Java -*- ********************************\
+ *                                                                         *
+ *   Copyright (c) 2009 VeriSign, Inc. All rights reserved.                *
+ *                                                                         *
+ * This software is provided solely in connection with the terms of the    *
+ * license agreement.  Any other use without the prior express written     *
+ * permission of VeriSign is completely prohibited.  The software and      *
+ * documentation are "Commercial Items", as that term is defined in 48     *
+ * C.F.R.  section 2.101, consisting of "Commercial Computer Software" and *
+ * "Commercial Computer Software Documentation" as such terms are defined  *
+ * in 48 C.F.R. section 252.227-7014(a)(5) and 48 C.F.R. section           *
+ * 252.227-7014(a)(1), and used in 48 C.F.R. section 12.212 and 48 C.F.R.  *
+ * section 227.7202, as applicable.  Pursuant to the above and other       *
+ * relevant sections of the Code of Federal Regulations, as applicable,    *
+ * VeriSign's publications, commercial computer software, and commercial   *
+ * computer software documentation are distributed and licensed to United  *
+ * States Government end users with only those rights as granted to all    *
+ * other end users, according to the terms and conditions contained in the *
+ * license agreement(s) that accompany the products and software           *
+ * documentation.                                                          *
+ *                                                                         *
+\***************************************************************************/
 
-package com.versign.tat.dnssec;
+package com.verisign.tat.dnssec;
+
+import org.xbill.DNS.*;
 
 import java.util.*;
 
-import org.xbill.DNS.*;
 
 /**
  * A version of the RRset class overrides the standard security status.
@@ -43,13 +40,11 @@ public class SRRset extends RRset {
         mSecurityStatus = new SecurityStatus();
     }
 
-    
     /**
      * Create a new SRRset from an existing RRset. This SRRset will contain that
      * same internal Record objects as the original RRset.
      */
     @SuppressWarnings("unchecked")
-    // org.xbill.DNS.RRset isn't typesafe-aware.
     public SRRset(RRset r) {
         this();
 
@@ -86,19 +81,24 @@ public class SRRset extends RRset {
         mSecurityStatus.setStatus(status);
     }
 
+    @SuppressWarnings("unchecked")
     public Iterator<Record> rrs() {
-        return (Iterator<Record>) rrs();
+        return (Iterator<Record>) super.rrs();
     }
-    
+
+    @SuppressWarnings("unchecked")
     public Iterator<RRSIGRecord> sigs() {
-        return (Iterator<RRSIGRecord>) sigs();
+        return (Iterator<RRSIGRecord>) super.sigs();
     }
-    
+
     public int totalSize() {
         int num_sigs = 0;
+
         for (Iterator<RRSIGRecord> i = sigs(); i.hasNext();) {
             num_sigs++;
+            i.next();
         }
+
         return size() + num_sigs;
     }
 
@@ -113,6 +113,7 @@ public class SRRset extends RRset {
         for (Iterator<RRSIGRecord> i = sigs(); i.hasNext();) {
             return i.next();
         }
+
         return null;
     }
 
@@ -121,7 +122,10 @@ public class SRRset extends RRset {
      *         (i.e., RRSIG SRRsets return false)
      */
     public boolean isSigned() {
-        if (getType() == Type.RRSIG) return false;
+        if (getType() == Type.RRSIG) {
+            return false;
+        }
+
         return firstSig() != null;
     }
 
@@ -130,7 +134,11 @@ public class SRRset extends RRset {
      */
     public Name getSignerName() {
         RRSIGRecord sig = (RRSIGRecord) firstSig();
-        if (sig == null) return null;
+
+        if (sig == null) {
+            return null;
+        }
+
         return sig.getSigner();
     }
 }
