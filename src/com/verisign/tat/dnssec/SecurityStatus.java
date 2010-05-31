@@ -23,10 +23,9 @@
 
 package com.verisign.tat.dnssec;
 
-
 /**
  * Codes for DNSSEC security statuses.
- *
+ * 
  * @author davidb
  */
 public class SecurityStatus {
@@ -70,7 +69,7 @@ public class SecurityStatus {
     private byte status;
 
     public SecurityStatus() {
-        status                       = UNCHECKED;
+        status = UNCHECKED;
     }
 
     public SecurityStatus(byte status) {
@@ -79,26 +78,26 @@ public class SecurityStatus {
 
     public static String string(int status) {
         switch (status) {
-            case INVALID:
-                return "Invalid";
+        case INVALID:
+            return "Invalid";
 
-            case BOGUS:
-                return "Bogus";
+        case BOGUS:
+            return "Bogus";
 
-            case SECURE:
-                return "Secure";
+        case SECURE:
+            return "Secure";
 
-            case INSECURE:
-                return "Insecure";
+        case INSECURE:
+            return "Insecure";
 
-            case INDETERMINATE:
-                return "Indeterminate";
+        case INDETERMINATE:
+            return "Indeterminate";
 
-            case UNCHECKED:
-                return "Unchecked";
+        case UNCHECKED:
+            return "Unchecked";
 
-            default:
-                return "UNKNOWN";
+        default:
+            return "UNKNOWN";
         }
     }
 

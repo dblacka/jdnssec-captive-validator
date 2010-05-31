@@ -27,15 +27,15 @@ import org.xbill.DNS.Name;
 
 import java.util.*;
 
-
 /**
  * Some basic utility functions.
  */
 public class Util {
     /**
      * Convert a DNS name into a string suitable for use as a cache key.
-     *
-     * @param name The name to convert.
+     * 
+     * @param name
+     *            The name to convert.
      * @return A string representing the name. This isn't ever meant to be
      *         converted back into a DNS name.
      */
@@ -78,7 +78,7 @@ public class Util {
     }
 
     public static List<ConfigEntry> parseConfigPrefix(Properties config,
-        String prefix) {
+            String prefix) {
         if (!prefix.endsWith(".")) {
             prefix = prefix + ".";
         }
@@ -102,8 +102,8 @@ public class Util {
         public String value;
 
         public ConfigEntry(String key, String value) {
-            this.key       = key;
-            this.value     = value;
+            this.key = key;
+            this.value = value;
         }
     }
 }

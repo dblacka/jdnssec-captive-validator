@@ -27,7 +27,6 @@ import org.xbill.DNS.*;
 
 import java.util.*;
 
-
 /**
  *
  */
@@ -89,10 +88,10 @@ public class TrustAnchorStore {
 
         for (Map.Entry<String, SRRset> entry : mMap.entrySet()) {
             for (Iterator<Record> i = entry.getValue().rrs(); i.hasNext();) {
-                DNSKEYRecord r        = (DNSKEYRecord) i.next();
-                String       key_desc = r.getName().toString() + "/" +
-                    DNSSEC.Algorithm.string(r.getAlgorithm()) + "/" +
-                    r.getFootprint();
+                DNSKEYRecord r = (DNSKEYRecord) i.next();
+                String key_desc = r.getName().toString() + "/"
+                        + DNSSEC.Algorithm.string(r.getAlgorithm()) + "/"
+                        + r.getFootprint();
                 res.add(key_desc);
             }
         }

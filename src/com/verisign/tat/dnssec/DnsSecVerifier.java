@@ -34,7 +34,6 @@ import java.security.*;
 
 import java.util.*;
 
-
 /**
  * A class for performing basic DNSSEC verification. The DNSJAVA package
  * contains a similar class. This is a re-implementation that allows us to have
@@ -42,9 +41,9 @@ import java.util.*;
  */
 public class DnsSecVerifier {
     public static final int UNKNOWN = 0;
-    public static final int RSA     = 1;
-    public static final int DSA     = 2;
-    private Logger          log     = Logger.getLogger(this.getClass());
+    public static final int RSA = 1;
+    public static final int DSA = 2;
+    private Logger log = Logger.getLogger(this.getClass());
 
     /**
      * This is a mapping of DNSSEC algorithm numbers/private identifiers to JCA
@@ -56,20 +55,20 @@ public class DnsSecVerifier {
         mAlgorithmMap = new HashMap<Integer, AlgEntry>();
 
         // set the default algorithm map.
-        mAlgorithmMap.put(new Integer(DNSSEC.RSAMD5),
-            new AlgEntry("MD5withRSA", DNSSEC.RSAMD5, false));
-        mAlgorithmMap.put(new Integer(DNSSEC.DSA),
-            new AlgEntry("SHA1withDSA", DNSSEC.DSA, true));
-        mAlgorithmMap.put(new Integer(DNSSEC.RSASHA1),
-            new AlgEntry("SHA1withRSA", DNSSEC.RSASHA1, false));
-        mAlgorithmMap.put(new Integer(DNSSEC.DSA_NSEC3_SHA1),
-            new AlgEntry("SHA1withDSA", DNSSEC.DSA, true));
-        mAlgorithmMap.put(new Integer(DNSSEC.RSA_NSEC3_SHA1),
-            new AlgEntry("SHA1withRSA", DNSSEC.RSASHA1, false));
-        mAlgorithmMap.put(new Integer(DNSSEC.RSASHA256),
-            new AlgEntry("SHA256withRSA", DNSSEC.RSASHA256, false));
-        mAlgorithmMap.put(new Integer(DNSSEC.RSASHA512),
-            new AlgEntry("SHA512withRSA", DNSSEC.RSASHA512, false));
+        mAlgorithmMap.put(new Integer(DNSSEC.RSAMD5), new AlgEntry(
+                "MD5withRSA", DNSSEC.RSAMD5, false));
+        mAlgorithmMap.put(new Integer(DNSSEC.DSA), new AlgEntry("SHA1withDSA",
+                DNSSEC.DSA, true));
+        mAlgorithmMap.put(new Integer(DNSSEC.RSASHA1), new AlgEntry(
+                "SHA1withRSA", DNSSEC.RSASHA1, false));
+        mAlgorithmMap.put(new Integer(DNSSEC.DSA_NSEC3_SHA1), new AlgEntry(
+                "SHA1withDSA", DNSSEC.DSA, true));
+        mAlgorithmMap.put(new Integer(DNSSEC.RSA_NSEC3_SHA1), new AlgEntry(
+                "SHA1withRSA", DNSSEC.RSASHA1, false));
+        mAlgorithmMap.put(new Integer(DNSSEC.RSASHA256), new AlgEntry(
+                "SHA256withRSA", DNSSEC.RSASHA256, false));
+        mAlgorithmMap.put(new Integer(DNSSEC.RSASHA512), new AlgEntry(
+                "SHA512withRSA", DNSSEC.RSASHA512, false));
     }
 
     private boolean isDSA(int algorithm) {
@@ -109,18 +108,18 @@ public class DnsSecVerifier {
 
         for (Util.ConfigEntry entry : aliases) {
             Integer alg_alias = new Integer(Util.parseInt(entry.key, -1));
-            Integer alg_orig  = new Integer(Util.parseInt(entry.value, -1));
+            Integer alg_orig = new Integer(Util.parseInt(entry.value, -1));
 
             if (!mAlgorithmMap.containsKey(alg_orig)) {
-                log.warn("Unable to alias " + alg_alias +
-                    " to unknown algorithm " + alg_orig);
+                log.warn("Unable to alias " + alg_alias
+                        + " to unknown algorithm " + alg_orig);
 
                 continue;
             }
 
             if (mAlgorithmMap.containsKey(alg_alias)) {
-                log.warn("Algorithm alias " + alg_alias +
-                    " is already defined and cannot be redefined");
+                log.warn("Algorithm alias " + alg_alias
+                        + " is already defined and cannot be redefined");
 
                 continue;
             }
@@ -135,8 +134,8 @@ public class DnsSecVerifier {
             if (entry == null) {
                 log.warn("DNSSEC alg " + alg + " has a null entry!");
             } else {
-                log.debug("DNSSEC alg " + alg + " maps to " + entry.jcaName +
-                    " (" + entry.dnssecAlg + ")");
+                log.debug("DNSSEC alg " + alg + " maps to " + entry.jcaName
+                        + " (" + entry.dnssecAlg + ")");
             }
         }
     }
@@ -145,7 +144,7 @@ public class DnsSecVerifier {
      * Find the matching DNSKEY(s) to an RRSIG within a DNSKEY rrset. Normally
      * this will only return one DNSKEY. It can return more than one, since
      * KeyID/Footprints are not guaranteed to be unique.
-     *
+     * 
      * @param dnskey_rrset
      *            The DNSKEY rrset to search.
      * @param signature
@@ -156,17 +155,19 @@ public class DnsSecVerifier {
     @SuppressWarnings("unchecked")
     private List<DNSKEYRecord> findKey(RRset dnskey_rrset, RRSIGRecord signature) {
         if (!signature.getSigner().equals(dnskey_rrset.getName())) {
-            log.trace("findKey: could not find appropriate key because " +
-                "incorrect keyset was supplied. Wanted: " +
-                signature.getSigner() + ", got: " + dnskey_rrset.getName());
+            log.trace("findKey: could not find appropriate key because "
+                    + "incorrect keyset was supplied. Wanted: "
+                    + signature.getSigner() + ", got: "
+                    + dnskey_rrset.getName());
 
             return null;
         }
 
-        int                keyid = signature.getFootprint();
-        int                alg   = signature.getAlgorithm();
+        int keyid = signature.getFootprint();
+        int alg = signature.getAlgorithm();
 
-        List<DNSKEYRecord> res   = new ArrayList<DNSKEYRecord>(dnskey_rrset.size());
+        List<DNSKEYRecord> res = new ArrayList<DNSKEYRecord>(dnskey_rrset
+                .size());
 
         for (Iterator i = dnskey_rrset.rrs(); i.hasNext();) {
             DNSKEYRecord r = (DNSKEYRecord) i.next();
@@ -177,8 +178,8 @@ public class DnsSecVerifier {
         }
 
         if (res.size() == 0) {
-            log.trace("findKey: could not find a key matching " +
-                "the algorithm and footprint in supplied keyset. ");
+            log.trace("findKey: could not find a key matching "
+                    + "the algorithm and footprint in supplied keyset. ");
 
             return null;
         }
@@ -189,7 +190,7 @@ public class DnsSecVerifier {
     /**
      * Check to see if a signature looks valid (i.e., matches the rrset in
      * question, in the validity period, etc.)
-     *
+     * 
      * @param rrset
      *            The rrset that the signature belongs to.
      * @param sigrec
@@ -214,8 +215,8 @@ public class DnsSecVerifier {
             return SecurityStatus.BOGUS;
         }
 
-        Date now    = new Date();
-        Date start  = sigrec.getTimeSigned();
+        Date now = new Date();
+        Date start = sigrec.getTimeSigned();
         Date expire = sigrec.getExpire();
 
         if (now.before(start)) {
@@ -225,8 +226,8 @@ public class DnsSecVerifier {
         }
 
         if (now.after(expire)) {
-            log.debug("Signature has expired (now = " + now +
-                ", sig expires = " + expire);
+            log.debug("Signature has expired (now = " + now
+                    + ", sig expires = " + expire);
 
             return SecurityStatus.BOGUS;
         }
@@ -235,8 +236,8 @@ public class DnsSecVerifier {
     }
 
     public PublicKey parseDNSKEY(DNSKEYRecord key) {
-        AlgEntry ae = (AlgEntry) mAlgorithmMap.get(new Integer(
-                    key.getAlgorithm()));
+        AlgEntry ae = (AlgEntry) mAlgorithmMap.get(new Integer(key
+                .getAlgorithm()));
 
         if (key.getAlgorithm() != ae.dnssecAlg) {
             // Recast the DNSKEYRecord in question as one using the offical
@@ -254,7 +255,7 @@ public class DnsSecVerifier {
     /**
      * Actually cryptographically verify a signature over the rrset. The RRSIG
      * record must match the rrset being verified (see checkSignature).
-     *
+     * 
      * @param rrset
      *            The rrset to verify.
      * @param sigrec
@@ -265,19 +266,19 @@ public class DnsSecVerifier {
      *         UNCHECKED if we just couldn't actually do the function.
      */
     public byte verifySignature(RRset rrset, RRSIGRecord sigrec,
-        DNSKEYRecord key) {
+            DNSKEYRecord key) {
         try {
             PublicKey pk = parseDNSKEY(key);
 
             if (pk == null) {
-                log.warn(
-                    "Could not convert DNSKEY record to a JCA public key: " +
-                    key);
+                log
+                        .warn("Could not convert DNSKEY record to a JCA public key: "
+                                + key);
 
                 return SecurityStatus.UNCHECKED;
             }
 
-            byte []   data   = SignUtils.generateSigData(rrset, sigrec);
+            byte[] data = SignUtils.generateSigData(rrset, sigrec);
 
             Signature signer = getSignature(sigrec.getAlgorithm());
 
@@ -288,7 +289,7 @@ public class DnsSecVerifier {
             signer.initVerify(pk);
             signer.update(data);
 
-            byte [] sig = sigrec.getSignature();
+            byte[] sig = sigrec.getSignature();
 
             if (isDSA(sigrec.getAlgorithm())) {
                 sig = SignUtils.convertDSASignature(sig);
@@ -318,7 +319,7 @@ public class DnsSecVerifier {
 
     /**
      * Verify an RRset against a particular signature.
-     *
+     * 
      * @return DNSSEC.Secure if the signature verfied, DNSSEC.Failed if it did
      *         not verify (for any reason), and DNSSEC.Insecure if verification
      *         could not be completed (usually because the public key was not
@@ -356,7 +357,7 @@ public class DnsSecVerifier {
      * Verifies an RRset. This routine does not modify the RRset. This RRset is
      * presumed to be verifiable, and the correct DNSKEY rrset is presumed to
      * have been found.
-     *
+     * 
      * @return SecurityStatus.SECURE if the rrest verified positively,
      *         SecurityStatus.BOGUS otherwise.
      */
@@ -373,7 +374,7 @@ public class DnsSecVerifier {
         while (i.hasNext()) {
             RRSIGRecord sigrec = (RRSIGRecord) i.next();
 
-            byte        res    = verifySignature(rrset, sigrec, key_rrset);
+            byte res = verifySignature(rrset, sigrec, key_rrset);
 
             if (res == SecurityStatus.SECURE) {
                 return res;
@@ -389,7 +390,7 @@ public class DnsSecVerifier {
      * Verify an RRset against a single DNSKEY. Use this when you must be
      * certain that an RRset signed and verifies with a particular DNSKEY (as
      * opposed to a particular DNSKEY rrset).
-     *
+     * 
      * @param rrset
      *            The rrset to verify.
      * @param dnskey
@@ -437,12 +438,12 @@ public class DnsSecVerifier {
 
     public int baseAlgorithm(int algorithm) {
         switch (algorithm) {
-            case DNSSEC.RSAMD5:
-            case DNSSEC.RSASHA1:
-                return RSA;
+        case DNSSEC.RSAMD5:
+        case DNSSEC.RSASHA1:
+            return RSA;
 
-            case DNSSEC.DSA:
-                return DSA;
+        case DNSSEC.DSA:
+            return DSA;
         }
 
         AlgEntry entry = (AlgEntry) mAlgorithmMap.get(new Integer(algorithm));
@@ -463,7 +464,8 @@ public class DnsSecVerifier {
         Signature s = null;
 
         try {
-            AlgEntry entry = (AlgEntry) mAlgorithmMap.get(new Integer(algorithm));
+            AlgEntry entry = (AlgEntry) mAlgorithmMap
+                    .get(new Integer(algorithm));
 
             if (entry == null) {
                 log.info("DNSSEC algorithm " + algorithm + " not recognized.");
@@ -481,14 +483,14 @@ public class DnsSecVerifier {
     }
 
     private static class AlgEntry {
-        public String  jcaName;
+        public String jcaName;
         public boolean isDSA;
-        public int     dnssecAlg;
+        public int dnssecAlg;
 
         public AlgEntry(String name, int dnssecAlg, boolean isDSA) {
-            jcaName            = name;
-            this.dnssecAlg     = dnssecAlg;
-            this.isDSA         = isDSA;
+            jcaName = name;
+            this.dnssecAlg = dnssecAlg;
+            this.isDSA = isDSA;
         }
     }
 

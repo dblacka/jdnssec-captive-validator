@@ -27,23 +27,22 @@ import org.xbill.DNS.*;
 
 import java.util.*;
 
-
 /**
  * This class represents a DNS message with resolver/validator state.
  */
 public class SMessage {
-    private static SRRset [] empty_srrset_array = new SRRset[0];
-    private Header           mHeader;
-    private Record           mQuestion;
-    private OPTRecord        mOPTRecord;
-    private List<SRRset> []  mSection;
-    private SecurityStatus   mSecurityStatus;
+    private static SRRset[] empty_srrset_array = new SRRset[0];
+    private Header mHeader;
+    private Record mQuestion;
+    private OPTRecord mOPTRecord;
+    private List<SRRset>[] mSection;
+    private SecurityStatus mSecurityStatus;
 
     @SuppressWarnings("unchecked")
     public SMessage(Header h) {
-        mSection                                = (List<SRRset> []) new List[3];
-        mHeader                                 = h;
-        mSecurityStatus                         = new SecurityStatus();
+        mSection = (List<SRRset>[]) new List[3];
+        mHeader = h;
+        mSecurityStatus = new SecurityStatus();
     }
 
     public SMessage(int id) {
@@ -56,11 +55,11 @@ public class SMessage {
 
     public SMessage(Message m) {
         this(m.getHeader());
-        mQuestion      = m.getQuestion();
-        mOPTRecord     = m.getOPT();
+        mQuestion = m.getQuestion();
+        mOPTRecord = m.getOPT();
 
         for (int i = Section.ANSWER; i <= Section.ADDITIONAL; i++) {
-            RRset [] rrsets = m.getSectionRRsets(i);
+            RRset[] rrsets = m.getSectionRRsets(i);
 
             for (int j = 0; j < rrsets.length; j++) {
                 addRRset(rrsets[j], i);
@@ -151,13 +150,13 @@ public class SMessage {
         sectionList.addAll(0, rrsets);
     }
 
-    public SRRset [] getSectionRRsets(int section) {
+    public SRRset[] getSectionRRsets(int section) {
         List<SRRset> slist = getSectionList(section);
 
-        return (SRRset []) slist.toArray(empty_srrset_array);
+        return (SRRset[]) slist.toArray(empty_srrset_array);
     }
 
-    public SRRset [] getSectionRRsets(int section, int qtype) {
+    public SRRset[] getSectionRRsets(int section, int qtype) {
         List<SRRset> slist = getSectionList(section);
 
         if (slist.size() == 0) {
@@ -172,7 +171,7 @@ public class SMessage {
             }
         }
 
-        return (SRRset []) result.toArray(empty_srrset_array);
+        return (SRRset[]) result.toArray(empty_srrset_array);
     }
 
     public void deleteRRset(SRRset rrset, int section) {
@@ -314,7 +313,7 @@ public class SMessage {
 
     /**
      * Find a specific (S)RRset in a given section.
-     *
+     * 
      * @param name
      *            the name of the RRset.
      * @param type
@@ -323,7 +322,7 @@ public class SMessage {
      *            the class of the RRset.
      * @param section
      *            the section to look in (ANSWER -> ADDITIONAL)
-     *
+     * 
      * @return The SRRset if found, null otherwise.
      */
     public SRRset findRRset(Name name, int type, int dclass, int section) {
@@ -331,12 +330,12 @@ public class SMessage {
             throw new IllegalArgumentException("Invalid section.");
         }
 
-        SRRset [] rrsets = getSectionRRsets(section);
+        SRRset[] rrsets = getSectionRRsets(section);
 
         for (int i = 0; i < rrsets.length; i++) {
-            if (rrsets[i].getName().equals(name) &&
-                    (rrsets[i].getType() == type) &&
-                    (rrsets[i].getDClass() == dclass)) {
+            if (rrsets[i].getName().equals(name)
+                    && (rrsets[i].getType() == type)
+                    && (rrsets[i].getDClass() == dclass)) {
                 return rrsets[i];
             }
         }
@@ -347,32 +346,32 @@ public class SMessage {
     /**
      * Find an "answer" RRset. This will look for RRsets in the ANSWER section
      * that match the <qname,qtype,qclass>, taking into consideration CNAMEs.
-     *
+     * 
      * @param qname
      *            The starting search name.
      * @param qtype
      *            The search type.
      * @param qclass
      *            The search class.
-     *
+     * 
      * @return a SRRset matching the query. This SRRset may have a different
      *         name from qname, due to following a CNAME chain.
      */
     public SRRset findAnswerRRset(Name qname, int qtype, int qclass) {
-        SRRset [] srrsets = getSectionRRsets(Section.ANSWER);
+        SRRset[] srrsets = getSectionRRsets(Section.ANSWER);
 
         for (int i = 0; i < srrsets.length; i++) {
-            if (srrsets[i].getName().equals(qname) &&
-                    (srrsets[i].getType() == Type.CNAME)) {
+            if (srrsets[i].getName().equals(qname)
+                    && (srrsets[i].getType() == Type.CNAME)) {
                 CNAMERecord cname = (CNAMERecord) srrsets[i].first();
                 qname = cname.getTarget();
 
                 continue;
             }
 
-            if (srrsets[i].getName().equals(qname) &&
-                    (srrsets[i].getType() == qtype) &&
-                    (srrsets[i].getDClass() == qclass)) {
+            if (srrsets[i].getName().equals(qname)
+                    && (srrsets[i].getType() == qtype)
+                    && (srrsets[i].getDClass() == qclass)) {
                 return srrsets[i];
             }
         }
