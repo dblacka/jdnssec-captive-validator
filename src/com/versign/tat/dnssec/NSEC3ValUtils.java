@@ -233,14 +233,14 @@ public class NSEC3ValUtils {
      */
     private static boolean nsec3Covers(NSEC3Record nsec3, byte [] hash,
         ByteArrayComparator bac) {
-        byte [] owner = hash(nsec3.getName(), nsec3);
+        Name ownerName = nsec3.getName();
+        byte [] owner = b32.fromString(ownerName.getLabelString(0));
         byte [] next  = nsec3.getNext();
 
         // This is the "normal case: owner < next and owner < hash < next
         if ((bac.compare(owner, hash) < 0) && (bac.compare(hash, next) < 0)) {
             return true;
         }
-
         // this is the end of zone case: next < owner && hash > owner || hash <
         // next
         if ((bac.compare(next, owner) <= 0) &&
@@ -318,7 +318,7 @@ public class NSEC3ValUtils {
         // FIXME: modify so that the NSEC3 matching the zone apex need not be
         // present.
         while (n.labels() >= zonename.labels()) {
-            nsec3         = findMatchingNSEC3(hash(n, params), zonename,
+            nsec3 = findMatchingNSEC3(hash(n, params), zonename,
                     nsec3s, params, bac);
 
             if (nsec3 != null) {
@@ -353,11 +353,12 @@ public class NSEC3ValUtils {
      */
     private static CEResponse proveClosestEncloser(Name qname, Name zonename,
         List<NSEC3Record> nsec3s, NSEC3Parameters params,
-        ByteArrayComparator bac, boolean proveDoesNotExist) {
+        ByteArrayComparator bac, boolean proveDoesNotExist, List<String> errorList) {
         CEResponse candidate = findClosestEncloser(qname, zonename, nsec3s,
                 params, bac);
 
         if (candidate == null) {
+            errorList.add("Could not find a candidate for the closest encloser");
             st_log.debug("proveClosestEncloser: could not find a " +
                 "candidate for the closest encloser.");
 
@@ -366,6 +367,7 @@ public class NSEC3ValUtils {
 
         if (candidate.closestEncloser.equals(qname)) {
             if (proveDoesNotExist) {
+                errorList.add("Proven closest encloser proved that the qname existed and should not have");
                 st_log.debug("proveClosestEncloser: proved that qname existed!");
 
                 return null;
@@ -382,6 +384,7 @@ public class NSEC3ValUtils {
         // a DNAME response.
         if (candidate.ce_nsec3.hasType(Type.NS) &&
                 !candidate.ce_nsec3.hasType(Type.SOA)) {
+            errorList.add("Proven closest encloser was a delegation");
             st_log.debug("proveClosestEncloser: closest encloser " +
                 "was a delegation!");
 
@@ -389,6 +392,7 @@ public class NSEC3ValUtils {
         }
 
         if (candidate.ce_nsec3.hasType(Type.DNAME)) {
+            errorList.add("Proven closest encloser was a DNAME");
             st_log.debug("proveClosestEncloser: closest encloser was a DNAME!");
 
             return null;
@@ -402,6 +406,8 @@ public class NSEC3ValUtils {
                 params, bac);
 
         if (candidate.nc_nsec3 == null) {
+            errorList.add("Could not find proof that the closest encloser was the closest encloser");
+            errorList.add("hash " + hashName(nc_hash, zonename) + " is not covered by any NSEC3 RRs");
             st_log.debug("Could not find proof that the " +
                 "closest encloser was the closest encloser");
 
@@ -520,7 +526,7 @@ public class NSEC3ValUtils {
      *         ignored.
      */
     public static boolean proveNameError(List<NSEC3Record> nsec3s, Name qname,
-        Name zonename) {
+        Name zonename, List<String> errorList) {
         if ((nsec3s == null) || (nsec3s.size() == 0)) {
             return false;
         }
@@ -528,6 +534,7 @@ public class NSEC3ValUtils {
         NSEC3Parameters nsec3params = nsec3Parameters(nsec3s);
 
         if (nsec3params == null) {
+            errorList.add("Could not find a single set of NSEC3 parameters (multiple parameters present");
             st_log.debug("Could not find a single set of " +
                 "NSEC3 parameters (multiple parameters present).");
 
@@ -539,9 +546,10 @@ public class NSEC3ValUtils {
         // First locate and prove the closest encloser to qname. We will use the
         // variant that fails if the closest encloser turns out to be qname.
         CEResponse ce = proveClosestEncloser(qname, zonename, nsec3s,
-                nsec3params, bac, true);
+                nsec3params, bac, true, errorList);
 
         if (ce == null) {
+            errorList.add("Failed to find the closest encloser as part of the NSEC3 proof");
             st_log.debug("proveNameError: failed to prove a closest encloser.");
 
             return false;
@@ -556,6 +564,7 @@ public class NSEC3ValUtils {
                 nsec3params, bac);
 
         if (nsec3 == null) {
+            errorList.add("Failed to prove that the applicable wildcard did not exist");
             st_log.debug("proveNameError: could not prove that the " +
                 "applicable wildcard did not exist.");
 
@@ -596,7 +605,7 @@ public class NSEC3ValUtils {
      * @return true if the NSEC3s prove the proposition.
      */
     public static boolean proveNodata(List<NSEC3Record> nsec3s, Name qname,
-        int qtype, Name zonename) {
+        int qtype, Name zonename, List<String> errorList) {
         if ((nsec3s == null) || (nsec3s.size() == 0)) {
             return false;
         }
@@ -638,7 +647,7 @@ public class NSEC3ValUtils {
         // match qname. Although, at this point, we know that it won't since we
         // just checked that.
         CEResponse ce = proveClosestEncloser(qname, zonename, nsec3s,
-                nsec3params, bac, true);
+                nsec3params, bac, true, errorList);
 
         // At this point, not finding a match or a proven closest encloser is a
         // problem.
@@ -700,7 +709,7 @@ public class NSEC3ValUtils {
      * @return true if the NSEC3 records prove this case.
      */
     public static boolean proveWildcard(List<NSEC3Record> nsec3s, Name qname,
-        Name zonename, Name wildcard) {
+        Name zonename, Name wildcard, List<String> errorList) {
         if ((nsec3s == null) || (nsec3s.size() == 0)) {
             return false;
         }
@@ -712,6 +721,7 @@ public class NSEC3ValUtils {
         NSEC3Parameters nsec3params = nsec3Parameters(nsec3s);
 
         if (nsec3params == null) {
+            errorList.add("Could not find a single set of NSEC3 parameters (multiple parameters present)");
             st_log.debug(
                 "couldn't find a single set of NSEC3 parameters (multiple parameters present).");
 
@@ -732,6 +742,9 @@ public class NSEC3ValUtils {
                 zonename, nsec3s, nsec3params, bac);
 
         if (candidate.nc_nsec3 == null) {
+            errorList.add("Did not find a NSEC3 that covered the next closer name to '" +
+                          qname + "' from '" + candidate.closestEncloser + "' (derived from the wildcard: " +
+                          wildcard + ")");
             st_log.debug("proveWildcard: did not find a covering NSEC3 " +
                 "that covered the next closer name to " + qname + " from " +
                 candidate.closestEncloser + " (derived from wildcard " +
@@ -763,7 +776,7 @@ public class NSEC3ValUtils {
      *         work out.
      */
     public static byte proveNoDS(List<NSEC3Record> nsec3s, Name qname,
-        Name zonename) {
+        Name zonename, List<String> errorList) {
         if ((nsec3s == null) || (nsec3s.size() == 0)) {
             return SecurityStatus.BOGUS;
         }
@@ -771,6 +784,7 @@ public class NSEC3ValUtils {
         NSEC3Parameters nsec3params = nsec3Parameters(nsec3s);
 
         if (nsec3params == null) {
+            errorList.add("Could not find a single set of NSEC3 parameters (multiple parameters present)");
             st_log.debug("couldn't find a single set of " +
                 "NSEC3 parameters (multiple parameters present).");
 
@@ -788,6 +802,7 @@ public class NSEC3ValUtils {
             // zone (the child instead of the parent). If it has the DS bit set,
             // then we were lied to.
             if (nsec3.hasType(Type.SOA) || nsec3.hasType(Type.DS)) {
+                errorList.add("Matching NSEC3 is incorrectly from the child instead of the parent (SOA or DS bit set)");
                 return SecurityStatus.BOGUS;
             }
 
@@ -803,9 +818,10 @@ public class NSEC3ValUtils {
 
         // Otherwise, we are probably in the opt-in case.
         CEResponse ce = proveClosestEncloser(qname, zonename, nsec3s,
-                nsec3params, bac, true);
+                nsec3params, bac, true, errorList);
 
         if (ce == null) {
+            errorList.add("Failed to prove the closest encloser as part of a 'No DS' proof");
             return SecurityStatus.BOGUS;
         }
 
@@ -816,6 +832,7 @@ public class NSEC3ValUtils {
             return SecurityStatus.SECURE;
         }
 
+        errorList.add("Failed to find a covering NSEC3 for 'No DS' proof");
         return SecurityStatus.BOGUS;
     }
 
