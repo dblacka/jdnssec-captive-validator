@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+
+<project default="jar" basedir=".">
+
+  <property file="build.properties" />
+  <property file="VERSION" />
+  
+  <property name="distname" value="dnssecreconciler-${version}" />
+
+  <property name="build.dir" value="build" />
+  <property name="build.dest" value="${build.dir}/classes" />
+  <property name="build.lib.dest" value="${build.dir}/lib" />
+  <property name="build.src" value="src" />
+
+  <property name="packages" value="com.verisignlabs.dnssec.*" />
+  <property name="doc.dir" value="docs" />
+  <property name="javadoc.dest" value="${doc.dir}/javadoc" />
+
+  <property name="lib.dir" value="lib" />
+
+  <!-- set the standard classpath -->
+  <path id="project.classpath">
+    <pathelement location="${build.dest}" />
+    <fileset dir="${lib.dir}" includes="*.jar,*.zip" />
+  </path>
+  <property name="project.classpath" refid="project.classpath" />
+
+  <target name="prepare-src">
+    <mkdir dir="${build.dest}" />
+    <mkdir dir="${build.lib.dest}" />
+  </target>
+
+  <target name="compile" depends="prepare-src" >
+    <javac srcdir="${build.src}" 
+           destdir="${build.dest}"
+           classpathref="project.classpath"
+           deprecation="true" 
+           includes="com/verisign/" />
+  </target>
+
+  <target name="jar" depends="usage,compile">
+
+    <jar destfile="${build.lib.dest}/dnssecreconciler.jar">
+      <zipfileset dir="${build.dest}" includes="**/*.class" />
+
+      <zipfileset src="${lib.dir}/dnsjava-2.0.8-vrsn-2.jar" />
+      <zipfileset src="${lib.dir}/log4j-1.2.15.jar" />
+
+      <manifest>
+        <attribute name="Main-Class"
+                   value="com.verisign.cl.DNSSECReconciler" />
+      </manifest>
+    </jar>
+  </target>
+
+  <target name="javadoc" depends="usage">
+    <mkdir dir="${javadoc.dest}"/>
+    <javadoc packagenames="${packages}" 
+             classpath="${project.classpath}"
+             sourcepath="${build.src}" 
+             destdir="${javadoc.dest}"
+             verbose="true" author="true" 
+             windowtitle="jdnssec-tools-${version}" 
+             use="true">
+      <link href="http://java.sun.com/j2se/1.4.2/docs/api/" />
+      <link href="http://www.xbill.org/dnsjava/doc/" />
+    </javadoc>
+  </target>
+
+
+  <target name="clean" depends="usage">
+    <delete dir="${build.dest}" />
+    <delete dir="${build.lib.dest}" />
+  </target>
+
+
+  <target name="usage">
+    <echo message=" " />
+    <echo message="DNSSECReconciler v. ${version} Build System" />
+    <echo message="--------------------------------" />
+    <echo message="Available Targets:" />
+    <echo message="  compile           - compiles the source code" />
+    <echo message="  jar (default)     - compiles the source code, creates jar" />
+    <echo message="  javadoc           - create javadoc from source" />
+    <echo message="  clean             - delete class files" />
+    <echo message="  dist              - package it up" />
+    <echo message="  usage             - this help message" />
+    <echo message=" " />
+  </target>
+
+</project>
+

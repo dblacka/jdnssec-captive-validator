@@ -943,8 +943,7 @@ public class CaptiveValidator {
             return SecurityStatus.BOGUS;
         }
 
-        ValUtils.ResponseType subtype = ValUtils
-                .classifyResponse(message, zone);
+        ValUtils.ResponseType subtype = ValUtils.classifyResponse(message, zone);
 
         switch (subtype) {
         case POSITIVE:
