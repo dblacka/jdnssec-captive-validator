@@ -3,6 +3,7 @@ package com.verisign.cl;
 import java.util.*;
 
 import org.xbill.DNS.*;
+
 import com.verisign.tat.dnssec.CaptiveValidator;
 
 public class DNSSECReconciler {
@@ -14,18 +15,71 @@ public class DNSSECReconciler {
     private CaptiveValidator validator;
 
     // Options
-    public String            server;
-    public String            query;
-    public String            queryFile;
-    public String            dnskeyFile;
-    public List<String>      dnskeyNames;
+    public String server;
+    public String query;
+    public String queryFile;
+    public String dnskeyFile;
+    public List<String> dnskeyNames;
 
     DNSSECReconciler() {
         validator = new CaptiveValidator();
     }
 
-    public void execute() {
+    /**
+     * Convert a query line of the form: <qname> <qtype> <flags> to a request
+     * message.
+     *
+     * @param query_line
+     * @return A query message
+     * @throws TextParseException
+     * @throws NameTooLongException
+     */
+    private Message queryFromString(String query_line)
+            throws TextParseException, NameTooLongException {
 
+        String[] tokens = query_line.split("[ \t]+");
+
+        Name qname = null;
+        int qtype = -1;
+        int qclass = -1;
+
+        if (tokens.length < 1)
+            return null;
+        qname = Name.fromString(tokens[0]);
+        if (!qname.isAbsolute()) {
+            qname = Name.concatenate(qname, Name.root);
+        }
+
+        for (int i = 1; i < tokens.length; i++) {
+            if (tokens[i].startsWith("+")) {
+                // For now, we ignore flags as uninteresting
+                continue;
+            }
+
+            int type = Type.value(tokens[i]);
+            if (type > 0) {
+                qtype = type;
+                continue;
+            }
+            int cls = DClass.value(tokens[i]);
+            if (cls > 0) {
+                qclass = cls;
+                continue;
+            }
+        }
+        if (qtype < 0) {
+            qtype = Type.A;
+        }
+        if (qclass < 0) {
+            qclass = DClass.IN;
+        }
+
+        Message query = Message.newQuery(Record.newRecord(qname, qtype, qclass));
+
+        return query;
+    }
+
+    public void execute() {
     }
 
     private static void usage() {
@@ -50,7 +104,7 @@ public class DNSSECReconciler {
                     usage();
                     return 1;
                 }
-                
+
                 String[] split_arg = arg.split("[ \t]*=[ \t]*", 2);
                 String opt = split_arg[0];
                 String optarg = split_arg[1];
@@ -89,8 +143,7 @@ public class DNSSECReconciler {
                 usage();
                 return 1;
             }
-            
-            
+
             // Execute the job
             dr.execute();
 
