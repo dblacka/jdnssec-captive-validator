@@ -3,6 +3,7 @@ package com.verisign.cl;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.*;
 
 import org.xbill.DNS.*;
@@ -150,6 +151,24 @@ public class DNSSECReconciler {
         return null;
     }
 
+    private Message resolve(Message query) {
+        
+        try {
+            return resolver.send(query);
+        } catch (SocketTimeoutException e) {
+            System.err.println("Error: timed out querying " + server + " for " + queryToString(query));
+        } catch (IOException e) {
+            System.err.println("Error: error querying " + server + " for " + queryToString(query) + ":" + e.getMessage());
+        }
+        return null;
+    }
+    
+    private String queryToString(Message query) {
+        if (query == null) return null;
+        Record question = query.getQuestion();
+        return question.getName() + "/" + Type.string(question.getType()) + "/" + DClass.string(question.getDClass());
+    }
+
     public void execute() throws IOException {
         // Configure our resolver
         resolver = new SimpleResolver(server);
@@ -161,7 +180,7 @@ public class DNSSECReconciler {
         } else {
             for (String name : dnskeyNames) {
                 Message query = queryFromString(name + " DNSKEY");
-                Message response = resolver.send(query);
+                Message response = resolve(query);
                 validator.addTrustedKeysFromResponse(response);
             }
         }
@@ -173,21 +192,27 @@ public class DNSSECReconciler {
 
         // Iterate over all queries
         Message query = nextQuery();
+        long count = 0;
 
         while (query != null) {
-            Message response = resolver.send(query);
-            if (response == null) {
+            
+            Name zone = zoneFromQuery(query);
+            // Skip queries in zones that we don't have keys for
+            if (zone == null) {
                 continue;
             }
             
-            Name zone = zoneFromQuery(query);
+            Message response = resolve(query);
+            if (response == null) {
+                continue;
+            }
             byte result = validator.validateMessage(response, zone.toString());
 
             switch (result) {
             case SecurityStatus.BOGUS:
             case SecurityStatus.INVALID:
                 System.out.println("BOGUS Answer:");
-                System.out.println("Query: " + query.getQuestion());
+                System.out.println("Query: " + queryToString(query));
                 System.out.println("Response:\n" + response);
                 for (String err : validator.getErrorList()) {
                     System.out.println("Error: " + err);
@@ -198,7 +223,7 @@ public class DNSSECReconciler {
             case SecurityStatus.INDETERMINATE:
             case SecurityStatus.UNCHECKED:
                 System.out.println("Insecure Answer:");
-                System.out.println("Query: " + query.getQuestion());
+                System.out.println("Query: " + queryToString(query));
                 System.out.println("Response:\n" + response);
                 for (String err : validator.getErrorList()) {
                     System.out.println("Error: " + err);
@@ -208,8 +233,14 @@ public class DNSSECReconciler {
                 break;
             }
             
+            if (++count % 1000 == 0) {
+                System.out.println("Completed " + count + " queries.");
+            }
+            
             query = nextQuery();
         }
+        
+        System.out.println("Completed " + count + (count > 1 ? " queries" : " query"));
     }
 
     private static void usage() {
