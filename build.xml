@@ -45,7 +45,6 @@
 
       <zipfileset src="${lib.dir}/dnsjava-2.0.8-vrsn-2.jar" />
       <zipfileset src="${lib.dir}/log4j-1.2.15.jar" />
-      <zipfileset dir="${lib.dir}" prefix="lib" includes="**/*.properties" />
       <manifest>
         <attribute name="Main-Class"
                    value="com.verisign.cl.DNSSECReconciler" />
@@ -67,6 +66,17 @@
     </javadoc>
   </target>
 
+  <target name="dist" depends="usage,jar">
+    <tar destfile="dnssecreconciler-${version}.tar.gz"
+         compression="gzip">
+      <tarfileset dir="${build.lib.dest}"
+               prefix="dnssecreconciler-${version}"
+               includes="*.jar" />
+      <tarfileset dir="." 
+               prefix="dnssecreconciler-${version}"
+               includes="README" />
+    </tar>
+  </target>
 
   <target name="clean" depends="usage">
     <delete dir="${build.dest}" />

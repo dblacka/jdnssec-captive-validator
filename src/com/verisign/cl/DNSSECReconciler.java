@@ -4,7 +4,7 @@ import java.io.*;
 import java.net.SocketTimeoutException;
 import java.util.*;
 
-import org.apache.log4j.PropertyConfigurator;
+import org.apache.log4j.BasicConfigurator;
 import org.xbill.DNS.*;
 
 import com.verisign.tat.dnssec.CaptiveValidator;
@@ -271,18 +271,19 @@ public class DNSSECReconciler {
 
     private static void usage() {
         System.err.println("usage: java -jar dnssecreconiler.jar [..options..]");
-        System.err.println("       server: the DNS server to query.");
-        System.err.println("       query: a name [type [flags]] string.");
-        System.err.println("       query_file: a list of queries, one query per line.");
-        System.err.println("       count: send up to'count' queries, then stop.");
-        System.err.println("       dnskey_file: a file containing DNSKEY RRs to trust.");
-        System.err.println("       dnskey_query: query 'server' for DNSKEY at given name to trust, may repeat");
-        System.err.println("       error_file: write DNSSEC validation failure details to this file");
+        System.err.println("       server:       the DNS server to query.");
+        System.err.println("       query:        a name [type [flags]] string.");
+        System.err.println("       query_file:   a list of queries, one query per line.");
+        System.err.println("       count:        send up to'count' queries, then stop.");
+        System.err.println("       dnskey_file:  a file containing DNSKEY RRs to trust.");
+        System.err.println("       dnskey_query: query 'server' for DNSKEY at given name to trust, may repeat.");
+        System.err.println("       error_file:   write DNSSEC validation failure details to this file.");
     }
 
     public static void main(String[] argv) {
 
-        PropertyConfigurator.configure("lib/log4j.properties");
+        // Set up Log4J to just log to console.
+        BasicConfigurator.configure();
 
         DNSSECReconciler dr = new DNSSECReconciler();
 
