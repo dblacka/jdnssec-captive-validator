@@ -45,7 +45,7 @@
 
       <zipfileset src="${lib.dir}/dnsjava-2.0.8-vrsn-2.jar" />
       <zipfileset src="${lib.dir}/log4j-1.2.15.jar" />
-
+      <zipfileset dir="${lib.dir}" prefix="lib" includes="**/*.properties" />
       <manifest>
         <attribute name="Main-Class"
                    value="com.verisign.cl.DNSSECReconciler" />

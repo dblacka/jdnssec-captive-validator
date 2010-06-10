@@ -1,15 +1,15 @@
 package com.verisign.cl;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
 import java.net.SocketTimeoutException;
 import java.util.*;
 
+import org.apache.log4j.PropertyConfigurator;
 import org.xbill.DNS.*;
 
 import com.verisign.tat.dnssec.CaptiveValidator;
 import com.verisign.tat.dnssec.SecurityStatus;
+import com.verisign.tat.dnssec.Util;
 
 public class DNSSECReconciler {
 
@@ -21,6 +21,7 @@ public class DNSSECReconciler {
     private SimpleResolver resolver;
 
     private BufferedReader queryStream;
+    private PrintStream errorStream;
     private Set<Name> zoneNames;
 
     // Options
@@ -29,6 +30,8 @@ public class DNSSECReconciler {
     public String queryFile;
     public String dnskeyFile;
     public List<String> dnskeyNames;
+    public String errorFile;
+    public long count = 0;
 
     DNSSECReconciler() {
         validator = new CaptiveValidator();
@@ -62,6 +65,7 @@ public class DNSSECReconciler {
         for (int i = 1; i < tokens.length; i++) {
             if (tokens[i].startsWith("+")) {
                 // For now, we ignore flags as uninteresting
+                // All queries will get the DO bit anyway
                 continue;
             }
 
@@ -83,8 +87,7 @@ public class DNSSECReconciler {
             qclass = DClass.IN;
         }
 
-        Message query = Message
-                .newQuery(Record.newRecord(qname, qtype, qclass));
+        Message query = Message.newQuery(Record.newRecord(qname, qtype, qclass));
 
         return query;
     }
@@ -125,7 +128,7 @@ public class DNSSECReconciler {
      * 
      * @param query
      * @return a zone name
-     * @throws IOException 
+     * @throws IOException
      */
     private Name zoneFromQuery(Message query) throws IOException {
 
@@ -134,45 +137,56 @@ public class DNSSECReconciler {
             for (String key : validator.listTrustedKeys()) {
                 String[] components = key.split("/");
                 Name keyname = Name.fromString(components[0]);
-                if (! keyname.isAbsolute()) {
+                if (!keyname.isAbsolute()) {
                     keyname = Name.concatenate(keyname, Name.root);
                 }
                 zoneNames.add(keyname);
             }
         }
-        
+
         Name qname = query.getQuestion().getName();
         for (Name n : zoneNames) {
             if (qname.subdomain(n)) {
                 return n;
             }
         }
-        
+
         return null;
     }
 
     private Message resolve(Message query) {
-        
+
         try {
             return resolver.send(query);
         } catch (SocketTimeoutException e) {
-            System.err.println("Error: timed out querying " + server + " for " + queryToString(query));
+            System.err.println("Error: timed out querying " + server + " for "
+                    + queryToString(query));
         } catch (IOException e) {
-            System.err.println("Error: error querying " + server + " for " + queryToString(query) + ":" + e.getMessage());
+            System.err.println("Error: error querying " + server + " for "
+                    + queryToString(query) + ":" + e.getMessage());
         }
         return null;
     }
-    
+
     private String queryToString(Message query) {
-        if (query == null) return null;
+        if (query == null)
+            return null;
         Record question = query.getQuestion();
-        return question.getName() + "/" + Type.string(question.getType()) + "/" + DClass.string(question.getDClass());
+        return question.getName() + "/" + Type.string(question.getType()) + "/"
+                + DClass.string(question.getDClass());
     }
 
     public void execute() throws IOException {
         // Configure our resolver
         resolver = new SimpleResolver(server);
         resolver.setEDNS(0, 4096, Flags.DO, null);
+
+        // Create our DNSSEC error stream
+        if (errorFile != null) {
+            errorStream = new PrintStream(new FileOutputStream(errorFile, true));
+        } else {
+            errorStream = System.out;
+        }
 
         // Prime the validator
         if (dnskeyFile != null) {
@@ -192,16 +206,18 @@ public class DNSSECReconciler {
 
         // Iterate over all queries
         Message query = nextQuery();
-        long count = 0;
+        long total = 0;
+        long validCount = 0;
+        long errorCount = 0;
 
         while (query != null) {
-            
+
             Name zone = zoneFromQuery(query);
             // Skip queries in zones that we don't have keys for
             if (zone == null) {
                 continue;
             }
-            
+
             Message response = resolve(query);
             if (response == null) {
                 continue;
@@ -211,52 +227,62 @@ public class DNSSECReconciler {
             switch (result) {
             case SecurityStatus.BOGUS:
             case SecurityStatus.INVALID:
-                System.out.println("BOGUS Answer:");
-                System.out.println("Query: " + queryToString(query));
-                System.out.println("Response:\n" + response);
+                errorStream.println("BOGUS Answer:");
+                errorStream.println("Query: " + queryToString(query));
+                errorStream.println("Response:\n" + response);
                 for (String err : validator.getErrorList()) {
-                    System.out.println("Error: " + err);
+                    errorStream.println("Error: " + err);
                 }
-                System.out.println("");
+                errorStream.println("");
+                errorCount++;
                 break;
             case SecurityStatus.INSECURE:
             case SecurityStatus.INDETERMINATE:
             case SecurityStatus.UNCHECKED:
-                System.out.println("Insecure Answer:");
-                System.out.println("Query: " + queryToString(query));
-                System.out.println("Response:\n" + response);
+                errorStream.println("Insecure Answer:");
+                errorStream.println("Query: " + queryToString(query));
+                errorStream.println("Response:\n" + response);
                 for (String err : validator.getErrorList()) {
-                    System.out.println("Error: " + err);
+                    errorStream.println("Error: " + err);
                 }
+                errorCount++;
                 break;
             case SecurityStatus.SECURE:
+                validCount++;
                 break;
             }
-            
-            if (++count % 1000 == 0) {
-                System.out.println("Completed " + count + " queries.");
+
+            if (++total % 1000 == 0) {
+                System.out.println("Completed " + total + " queries: "
+                        + validCount + " valid, " + errorCount + " errors.");
+            }
+         
+            if (count > 0 && total >= count) {
+                break;
             }
             
             query = nextQuery();
         }
-        
-        System.out.println("Completed " + count + (count > 1 ? " queries" : " query"));
+
+        System.out.println("Completed " + total
+                + (total > 1 ? " queries" : " query") +
+                ": " + validCount + " valid, " + errorCount + " errors.");
     }
 
     private static void usage() {
-        System.err
-                .println("usage: java -jar dnssecreconiler.jar [..options..]");
+        System.err.println("usage: java -jar dnssecreconiler.jar [..options..]");
         System.err.println("       server: the DNS server to query.");
         System.err.println("       query: a name [type [flags]] string.");
-        System.err
-                .println("       query_file: a list of queries, one query per line.");
-        System.err
-                .println("       dnskey_file: a file containing DNSKEY RRs to trust.");
-        System.err
-                .println("       dnskey_query: query 'server' for DNSKEY at given name to trust, may repeat");
+        System.err.println("       query_file: a list of queries, one query per line.");
+        System.err.println("       count: send up to'count' queries, then stop.");
+        System.err.println("       dnskey_file: a file containing DNSKEY RRs to trust.");
+        System.err.println("       dnskey_query: query 'server' for DNSKEY at given name to trust, may repeat");
+        System.err.println("       error_file: write DNSSEC validation failure details to this file");
     }
 
     public static void main(String[] argv) {
+
+        PropertyConfigurator.configure("lib/log4j.properties");
 
         DNSSECReconciler dr = new DNSSECReconciler();
 
@@ -280,6 +306,10 @@ public class DNSSECReconciler {
                     dr.query = optarg;
                 } else if (opt.equals("query_file")) {
                     dr.queryFile = optarg;
+                } else if (opt.equals("count")) {
+                    dr.count = Util.parseInt(optarg, 0);
+                } else if (opt.equals("error_file")) {
+                    dr.errorFile = optarg;
                 } else if (opt.equals("dnskey_file")) {
                     dr.dnskeyFile = optarg;
                 } else if (opt.equals("dnskey_query")) {
@@ -301,14 +331,12 @@ public class DNSSECReconciler {
                 System.exit(1);
             }
             if (dr.query == null && dr.queryFile == null) {
-                System.err
-                        .println("Either 'query' or 'query_file' must be specified");
+                System.err.println("Either 'query' or 'query_file' must be specified");
                 usage();
                 System.exit(1);
             }
             if (dr.dnskeyFile == null && dr.dnskeyNames == null) {
-                System.err
-                        .println("Either 'dnskey_file' or 'dnskey_query' must be specified");
+                System.err.println("Either 'dnskey_file' or 'dnskey_query' must be specified");
                 usage();
                 System.exit(1);
             }
