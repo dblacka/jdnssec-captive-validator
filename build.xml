@@ -84,7 +84,7 @@
 
   <target name="usage">
     <echo message=" " />
-    <echo message="DNSSECReconciler v. ${version} Build System" />
+    <echo message="DNSSECValTool v. ${version} Build System" />
     <echo message="--------------------------------" />
     <echo message="Available Targets:" />
     <echo message="  compile           - compiles the source code" />

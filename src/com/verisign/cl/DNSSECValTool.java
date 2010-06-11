@@ -5,6 +5,8 @@ import java.net.SocketTimeoutException;
 import java.util.*;
 
 import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.xbill.DNS.*;
 
 import com.verisign.tat.dnssec.CaptiveValidator;
@@ -32,6 +34,7 @@ public class DNSSECValTool {
     public List<String> dnskeyNames;
     public String errorFile;
     public long count = 0;
+    public boolean debug = false;
 
     DNSSECValTool() {
         validator = new CaptiveValidator();
@@ -215,11 +218,20 @@ public class DNSSECValTool {
             Name zone = zoneFromQuery(query);
             // Skip queries in zones that we don't have keys for
             if (zone == null) {
+                if (debug) {
+                    System.out.println("DEBUG: skipping query " + queryToString(query));
+                }
+                query = nextQuery();
                 continue;
+            }
+
+            if (debug) {
+                System.out.println("DEBUG: querying for: " + queryToString(query));
             }
 
             Message response = resolve(query);
             if (response == null) {
+                System.out.println("ERROR: No response for query: " + queryToString(query));
                 continue;
             }
             byte result = validator.validateMessage(response, zone.toString());
@@ -248,6 +260,7 @@ public class DNSSECValTool {
                 errorCount++;
                 break;
             case SecurityStatus.SECURE:
+                if (debug) System.out.println("DEBUG: response for " + queryToString(query) + " was valid.");
                 validCount++;
                 break;
             }
@@ -258,6 +271,7 @@ public class DNSSECValTool {
             }
          
             if (count > 0 && total >= count) {
+                if (debug) System.out.println("DEBUG: reached maximum number of queries, exiting");
                 break;
             }
             
@@ -284,6 +298,9 @@ public class DNSSECValTool {
 
         // Set up Log4J to just log to console.
         BasicConfigurator.configure();
+        // And raise the log level quite high
+        Logger rootLogger = Logger.getRootLogger();
+        rootLogger.setLevel(Level.FATAL);
 
         DNSSECValTool dr = new DNSSECValTool();
 
@@ -318,6 +335,8 @@ public class DNSSECValTool {
                         dr.dnskeyNames = new ArrayList<String>();
                     }
                     dr.dnskeyNames.add(optarg);
+                } else if (opt.equals("debug")) {
+                    dr.debug = Boolean.parseBoolean(optarg);
                 } else {
                     System.err.println("Unrecognized option: " + opt);
                     usage();
