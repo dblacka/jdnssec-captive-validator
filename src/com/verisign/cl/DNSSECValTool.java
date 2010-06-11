@@ -11,7 +11,7 @@ import com.verisign.tat.dnssec.CaptiveValidator;
 import com.verisign.tat.dnssec.SecurityStatus;
 import com.verisign.tat.dnssec.Util;
 
-public class DNSSECReconciler {
+public class DNSSECValTool {
 
     /**
      * Invoke with java -jar dnssecreconciler.jar server=127.0.0.1 \
@@ -33,7 +33,7 @@ public class DNSSECReconciler {
     public String errorFile;
     public long count = 0;
 
-    DNSSECReconciler() {
+    DNSSECValTool() {
         validator = new CaptiveValidator();
     }
 
@@ -270,7 +270,7 @@ public class DNSSECReconciler {
     }
 
     private static void usage() {
-        System.err.println("usage: java -jar dnssecreconiler.jar [..options..]");
+        System.err.println("usage: java -jar dnssecvaltool.jar [..options..]");
         System.err.println("       server:       the DNS server to query.");
         System.err.println("       query:        a name [type [flags]] string.");
         System.err.println("       query_file:   a list of queries, one query per line.");
@@ -285,7 +285,7 @@ public class DNSSECReconciler {
         // Set up Log4J to just log to console.
         BasicConfigurator.configure();
 
-        DNSSECReconciler dr = new DNSSECReconciler();
+        DNSSECValTool dr = new DNSSECValTool();
 
         try {
             // Parse the command line options

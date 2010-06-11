@@ -5,7 +5,7 @@
   <property file="build.properties" />
   <property file="VERSION" />
   
-  <property name="distname" value="dnssecreconciler-${version}" />
+  <property name="distname" value="dnssecvaltool-${version}" />
 
   <property name="build.dir" value="build" />
   <property name="build.dest" value="${build.dir}/classes" />
@@ -40,14 +40,14 @@
 
   <target name="jar" depends="usage,compile">
 
-    <jar destfile="${build.lib.dest}/dnssecreconciler.jar">
+    <jar destfile="${build.lib.dest}/dnssecvaltool.jar">
       <zipfileset dir="${build.dest}" includes="**/*.class" />
 
       <zipfileset src="${lib.dir}/dnsjava-2.0.8-vrsn-2.jar" />
       <zipfileset src="${lib.dir}/log4j-1.2.15.jar" />
       <manifest>
         <attribute name="Main-Class"
-                   value="com.verisign.cl.DNSSECReconciler" />
+                   value="com.verisign.cl.DNSSECValTool" />
       </manifest>
     </jar>
   </target>
@@ -67,14 +67,12 @@
   </target>
 
   <target name="dist" depends="usage,jar">
-    <tar destfile="dnssecreconciler-${version}.tar.gz"
-         compression="gzip">
-      <tarfileset dir="${build.lib.dest}"
-               prefix="dnssecreconciler-${version}"
-               includes="*.jar" />
-      <tarfileset dir="." 
-               prefix="dnssecreconciler-${version}"
-               includes="README" />
+    <property name="dprefix" value="dnssecvaltool-${version}" />
+    <property name="tarfile" value="${dprefix}.tar.gz" />
+    <tar destfile="${tarfile}" compression="gzip">
+      <tarfileset dir="${build.lib.dest}" prefix="${dprefix}"
+                  includes="*.jar" />
+      <tarfileset dir="." prefix="${dprefix}" includes="README" />
     </tar>
   </target>
 
