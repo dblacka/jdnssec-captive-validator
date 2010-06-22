@@ -86,6 +86,10 @@ public class TrustAnchorStore {
     public List<String> listTrustAnchors() {
         List<String> res = new ArrayList<String>();
 
+        if (mMap == null) {
+            return res;
+        }
+
         for (Map.Entry<String, SRRset> entry : mMap.entrySet()) {
             for (Iterator<Record> i = entry.getValue().rrs(); i.hasNext();) {
                 DNSKEYRecord r = (DNSKEYRecord) i.next();

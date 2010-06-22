@@ -203,6 +203,12 @@ public class DNSSECValTool {
         }
 
         // Log our set of trusted keys
+        List<String> trustedKeys = validator.listTrustedKeys();
+        if (trustedKeys.size() == 0) {
+            System.err.println("ERROR: no trusted keys found/provided.");
+            return;
+        }
+
         for (String key : validator.listTrustedKeys()) {
             System.out.println("Trusted Key: " + key);
         }
