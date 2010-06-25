@@ -339,7 +339,7 @@ public class ValUtils {
         return false;
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     public static RRSIGRecord rrsetFirstSig(RRset rrset) {
         for (Iterator i = rrset.sigs(); i.hasNext();) {
             return (RRSIGRecord) i.next();

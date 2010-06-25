@@ -31,6 +31,7 @@ import java.util.*;
  * A version of the RRset class overrides the standard security status.
  */
 public class SRRset extends RRset {
+    private static final long serialVersionUID = 1L;
     private SecurityStatus mSecurityStatus;
 
     /** Create a new, blank SRRset. */
@@ -43,7 +44,7 @@ public class SRRset extends RRset {
      * Create a new SRRset from an existing RRset. This SRRset will contain that
      * same internal Record objects as the original RRset.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     public SRRset(RRset r) {
         this();
 

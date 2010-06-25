@@ -35,6 +35,7 @@ import org.xbill.DNS.utils.base64;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.Serializable;
 
 import java.security.SignatureException;
 import java.security.interfaces.DSAParams;
@@ -178,7 +179,7 @@ public class SignUtils {
      * @return the canonical wire line format of the rrset. This is the second
      *         part of data to be signed.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     public static byte[] generateCanonicalRRsetData(RRset rrset, long ttl,
             int labels) {
         DNSOutput image = new DNSOutput();
@@ -456,7 +457,8 @@ public class SignUtils {
      * useful for comparing RDATA portions of DNS records in doing DNSSEC
      * canonical ordering.
      */
-    public static class ByteArrayComparator implements Comparator<byte[]> {
+    public static class ByteArrayComparator implements Comparator<byte[]>, Serializable {
+        private static final long serialVersionUID = 1L;
         private int mOffset = 0;
         private boolean mDebug = false;
 

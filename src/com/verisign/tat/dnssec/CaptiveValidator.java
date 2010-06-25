@@ -957,9 +957,9 @@ public class CaptiveValidator {
 
             break;
 
-            case NODATA:
-                log.trace("Validating a NODATA response");
-                validateNodataResponse(message, key_rrset, mErrorList);
+        case NODATA:
+            log.trace("Validating a NODATA response");
+            validateNodataResponse(message, key_rrset, mErrorList);
 
             break;
 

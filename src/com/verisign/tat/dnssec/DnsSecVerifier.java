@@ -46,28 +46,35 @@ public class DnsSecVerifier {
     private Logger log = Logger.getLogger(this.getClass());
 
     /**
-     * This is a mapping of DNSSEC algorithm numbers/private identifiers to JCA
-     * algorithm identifiers.
+     * This is a mapping of DNSSEC algorithm numbers to JCA algorithm
+     * identifiers.
      */
     private HashMap<Integer, AlgEntry> mAlgorithmMap;
 
+    /**
+     * This is a mapping of DNSSEC private (DNS name) identifiers to JCA
+     * algorithm identifiers.
+     */
+    private HashMap<Name, AlgEntry> mPrivateAlgorithmMap;
+
     public DnsSecVerifier() {
         mAlgorithmMap = new HashMap<Integer, AlgEntry>();
+        mPrivateAlgorithmMap = new HashMap<Name, AlgEntry>();
 
         // set the default algorithm map.
-        mAlgorithmMap.put(new Integer(DNSSEC.RSAMD5), new AlgEntry(
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSAMD5), new AlgEntry(
                 "MD5withRSA", DNSSEC.RSAMD5, false));
-        mAlgorithmMap.put(new Integer(DNSSEC.DSA), new AlgEntry("SHA1withDSA",
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.DSA), new AlgEntry("SHA1withDSA",
                 DNSSEC.DSA, true));
-        mAlgorithmMap.put(new Integer(DNSSEC.RSASHA1), new AlgEntry(
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSASHA1), new AlgEntry(
                 "SHA1withRSA", DNSSEC.RSASHA1, false));
-        mAlgorithmMap.put(new Integer(DNSSEC.DSA_NSEC3_SHA1), new AlgEntry(
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.DSA_NSEC3_SHA1), new AlgEntry(
                 "SHA1withDSA", DNSSEC.DSA, true));
-        mAlgorithmMap.put(new Integer(DNSSEC.RSA_NSEC3_SHA1), new AlgEntry(
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSA_NSEC3_SHA1), new AlgEntry(
                 "SHA1withRSA", DNSSEC.RSASHA1, false));
-        mAlgorithmMap.put(new Integer(DNSSEC.RSASHA256), new AlgEntry(
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSASHA256), new AlgEntry(
                 "SHA256withRSA", DNSSEC.RSASHA256, false));
-        mAlgorithmMap.put(new Integer(DNSSEC.RSASHA512), new AlgEntry(
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSASHA512), new AlgEntry(
                 "SHA512withRSA", DNSSEC.RSASHA512, false));
     }
 
@@ -85,7 +92,7 @@ public class DnsSecVerifier {
             return false;
         }
 
-        AlgEntry entry = (AlgEntry) mAlgorithmMap.get(new Integer(algorithm));
+        AlgEntry entry = (AlgEntry) mAlgorithmMap.get(Integer.valueOf(algorithm));
 
         if (entry != null) {
             return entry.isDSA;
@@ -107,8 +114,8 @@ public class DnsSecVerifier {
                 "dns.algorithm.");
 
         for (Util.ConfigEntry entry : aliases) {
-            Integer alg_alias = new Integer(Util.parseInt(entry.key, -1));
-            Integer alg_orig = new Integer(Util.parseInt(entry.value, -1));
+            Integer alg_alias = Integer.valueOf(Util.parseInt(entry.key, -1));
+            Integer alg_orig = Integer.valueOf(Util.parseInt(entry.value, -1));
 
             if (!mAlgorithmMap.containsKey(alg_orig)) {
                 log.warn("Unable to alias " + alg_alias
@@ -152,7 +159,7 @@ public class DnsSecVerifier {
      * @return A List contains a one or more DNSKEYRecord objects, or null if a
      *         matching DNSKEY could not be found.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     private List<DNSKEYRecord> findKey(RRset dnskey_rrset, RRSIGRecord signature) {
         if (!signature.getSigner().equals(dnskey_rrset.getName())) {
             log.trace("findKey: could not find appropriate key because "
@@ -236,7 +243,7 @@ public class DnsSecVerifier {
     }
 
     public PublicKey parseDNSKEY(DNSKEYRecord key) {
-        AlgEntry ae = (AlgEntry) mAlgorithmMap.get(new Integer(key
+        AlgEntry ae = (AlgEntry) mAlgorithmMap.get(Integer.valueOf(key
                 .getAlgorithm()));
 
         if (key.getAlgorithm() != ae.dnssecAlg) {
@@ -361,7 +368,7 @@ public class DnsSecVerifier {
      * @return SecurityStatus.SECURE if the rrest verified positively,
      *         SecurityStatus.BOGUS otherwise.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     public byte verify(RRset rrset, RRset key_rrset) {
         Iterator i = rrset.sigs();
 
@@ -397,7 +404,7 @@ public class DnsSecVerifier {
      *            The DNSKEY to verify with.
      * @return SecurityStatus.SECURE if the rrset verified, BOGUS otherwise.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     public byte verify(RRset rrset, DNSKEYRecord dnskey) {
         // Iterate over RRSIGS
         Iterator i = rrset.sigs();
@@ -429,11 +436,11 @@ public class DnsSecVerifier {
     }
 
     public boolean supportsAlgorithm(int algorithm) {
-        return mAlgorithmMap.containsKey(new Integer(algorithm));
+        return mAlgorithmMap.containsKey(Integer.valueOf(algorithm));
     }
 
     public boolean supportsAlgorithm(Name private_id) {
-        return mAlgorithmMap.containsKey(private_id);
+        return mPrivateAlgorithmMap.containsKey(private_id);
     }
 
     public int baseAlgorithm(int algorithm) {
@@ -446,7 +453,7 @@ public class DnsSecVerifier {
             return DSA;
         }
 
-        AlgEntry entry = (AlgEntry) mAlgorithmMap.get(new Integer(algorithm));
+        AlgEntry entry = (AlgEntry) mAlgorithmMap.get(Integer.valueOf(algorithm));
 
         if (entry == null) {
             return UNKNOWN;
@@ -465,7 +472,7 @@ public class DnsSecVerifier {
 
         try {
             AlgEntry entry = (AlgEntry) mAlgorithmMap
-                    .get(new Integer(algorithm));
+                    .get(Integer.valueOf(algorithm));
 
             if (entry == null) {
                 log.info("DNSSEC algorithm " + algorithm + " not recognized.");

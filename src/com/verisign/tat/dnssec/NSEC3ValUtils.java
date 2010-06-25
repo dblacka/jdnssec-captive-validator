@@ -137,17 +137,6 @@ public class NSEC3ValUtils {
         }
     }
 
-    private static byte[] hash(Name name, NSEC3Record nsec3) {
-        try {
-            return nsec3.hashName(name);
-        } catch (NoSuchAlgorithmException e) {
-            st_log.warn("Did not recognize hash algorithm: "
-                    + nsec3.getHashAlgorithm());
-
-            return null;
-        }
-    }
-
     /**
      * Given the name of a closest encloser, return the name *.closest_encloser.
      * 
@@ -458,7 +447,7 @@ public class NSEC3ValUtils {
         return -1;
     }
 
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("rawtypes")
     private static boolean validIterations(NSEC3Parameters nsec3params,
             RRset dnskey_rrset, DnsSecVerifier verifier) {
         // for now, we return the maximum iterations based simply on the key
