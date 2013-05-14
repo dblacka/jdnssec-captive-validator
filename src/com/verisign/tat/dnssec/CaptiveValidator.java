@@ -26,6 +26,7 @@ package com.verisign.tat.dnssec;
 import org.apache.log4j.Logger;
 
 import org.xbill.DNS.*;
+import org.xbill.DNS.utils.base64;
 
 import java.io.IOException;
 
@@ -994,6 +995,18 @@ public class CaptiveValidator {
         Name z = Name.fromString(zone);
 
         return validateMessage(sm, z);
+    }
+
+    public byte validateMessage(byte[] messagebytes, String zone)
+            throws IOException {
+        Message message = new Message(messagebytes);
+        return validateMessage(message, zone);
+    }
+
+    public byte validateMessage(String b64messagebytes, String zone)
+            throws IOException {
+        byte[] messagebytes = base64.fromString(b64messagebytes);
+        return validateMessage(messagebytes, zone);
     }
 
     public List<String> listTrustedKeys() {
