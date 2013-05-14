@@ -62,33 +62,33 @@ public class DnsSecVerifier {
         mPrivateAlgorithmMap = new HashMap<Name, AlgEntry>();
 
         // set the default algorithm map.
-        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSAMD5), new AlgEntry(
-                "MD5withRSA", DNSSEC.RSAMD5, false));
-        mAlgorithmMap.put(Integer.valueOf(DNSSEC.DSA), new AlgEntry("SHA1withDSA",
-                DNSSEC.DSA, true));
-        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSASHA1), new AlgEntry(
-                "SHA1withRSA", DNSSEC.RSASHA1, false));
-        mAlgorithmMap.put(Integer.valueOf(DNSSEC.DSA_NSEC3_SHA1), new AlgEntry(
-                "SHA1withDSA", DNSSEC.DSA, true));
-        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSA_NSEC3_SHA1), new AlgEntry(
-                "SHA1withRSA", DNSSEC.RSASHA1, false));
-        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSASHA256), new AlgEntry(
-                "SHA256withRSA", DNSSEC.RSASHA256, false));
-        mAlgorithmMap.put(Integer.valueOf(DNSSEC.RSASHA512), new AlgEntry(
-                "SHA512withRSA", DNSSEC.RSASHA512, false));
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.Algorithm.RSAMD5), new AlgEntry(
+                "MD5withRSA", DNSSEC.Algorithm.RSAMD5, false));
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.Algorithm.DSA), new AlgEntry("SHA1withDSA",
+                DNSSEC.Algorithm.DSA, true));
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.Algorithm.RSASHA1), new AlgEntry(
+                "SHA1withRSA", DNSSEC.Algorithm.RSASHA1, false));
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.Algorithm.DSA_NSEC3_SHA1), new AlgEntry(
+                "SHA1withDSA", DNSSEC.Algorithm.DSA, true));
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.Algorithm.RSA_NSEC3_SHA1), new AlgEntry(
+                "SHA1withRSA", DNSSEC.Algorithm.RSASHA1, false));
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.Algorithm.RSASHA256), new AlgEntry(
+                "SHA256withRSA", DNSSEC.Algorithm.RSASHA256, false));
+        mAlgorithmMap.put(Integer.valueOf(DNSSEC.Algorithm.RSASHA512), new AlgEntry(
+                "SHA512withRSA", DNSSEC.Algorithm.RSASHA512, false));
     }
 
     private boolean isDSA(int algorithm) {
         // shortcut the standard algorithms
-        if (algorithm == DNSSEC.DSA) {
+        if (algorithm == DNSSEC.Algorithm.DSA) {
             return true;
         }
 
-        if (algorithm == DNSSEC.RSASHA1) {
+        if (algorithm == DNSSEC.Algorithm.RSASHA1) {
             return false;
         }
 
-        if (algorithm == DNSSEC.RSAMD5) {
+        if (algorithm == DNSSEC.Algorithm.RSAMD5) {
             return false;
         }
 
@@ -202,12 +202,12 @@ public class DnsSecVerifier {
      *            The rrset that the signature belongs to.
      * @param sigrec
      *            The signature record to check.
-     * @return A value of DNSSEC.Secure if it looks OK, DNSSEC.Faile if it looks
+     * @return A value of SecurityStatus.SECURE if it looks OK, SecurityStatus.BOGUS if it looks
      *         bad.
      */
     private byte checkSignature(RRset rrset, RRSIGRecord sigrec) {
         if ((rrset == null) || (sigrec == null)) {
-            return DNSSEC.Failed;
+            return SecurityStatus.BOGUS;
         }
 
         if (!rrset.getName().equals(sigrec.getName())) {
@@ -445,11 +445,11 @@ public class DnsSecVerifier {
 
     public int baseAlgorithm(int algorithm) {
         switch (algorithm) {
-        case DNSSEC.RSAMD5:
-        case DNSSEC.RSASHA1:
+        case DNSSEC.Algorithm.RSAMD5:
+        case DNSSEC.Algorithm.RSASHA1:
             return RSA;
 
-        case DNSSEC.DSA:
+        case DNSSEC.Algorithm.DSA:
             return DSA;
         }
 
