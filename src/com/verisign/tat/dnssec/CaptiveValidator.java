@@ -579,7 +579,7 @@ public class CaptiveValidator {
             return;
         }
 
-        if (nsec3s.size() > 0) {
+        if (nsec3s != null && nsec3s.size() > 0) {
             byte status = NSEC3ValUtils.proveNoDS(nsec3s, delegation, nsec3zone, mErrorList);
 
             if (status != SecurityStatus.SECURE) {

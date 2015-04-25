@@ -73,18 +73,18 @@ only:
 while (<>) {
     # parse domain table lines
     /^i A / && do {
-	@fields = split();
-	$dn = $fields[3];
-	($dom, $tld) = split(/\./, $dn, 2);
-	next if $tld ne "EDU";
-	print "$dn. A\n";
-	print "${dom}_.$tld. A\n";
+        @fields = split();
+        $dn = $fields[3];
+        ($dom, $tld) = split(/\./, $dn, 2);
+        next if $tld ne "EDU";
+        print "$dn. A\n";
+        print "${dom}_.$tld. A\n";
     };
     # parse nameserver table lines
     /^i B / && do {
-	@fields = split();
-	$ns = $fields[3];
-	print "$ns. A\n";
+        @fields = split();
+        $ns = $fields[3];
+        print "$ns. A\n";
     };
 }
 
@@ -98,7 +98,7 @@ Examples
 java -jar dnssecvaltool.jar server=a.edu-servers.net \
      dnskey_query=edu \
      query_file=queries.txt \
-     error_file=dnssecvaltool_errors.log 
+     error_file=dnssecvaltool_errors.log
 
 2. Query localhost with a single query for edu/soa, using stored keys
    in the file 'keys'.  Validation failures will be logged to stdout.
@@ -107,4 +107,9 @@ java -jar dnssecvaltool.jar server=127.0.0.1 \
      dnskey_file=keys \
      query="edu soa"
 
-     
+3. Query "a.gov-servers.net", fetching the .gov keys directly from
+   that server, then query for nasa.gov/A.
+
+java -jar dnssecvaltool.jar server=a.gov-servers.net \
+     dnskey_query=gov \
+     query="nasa.gov a"
