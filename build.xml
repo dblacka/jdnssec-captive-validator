@@ -94,7 +94,11 @@
     <echo message="  dist              - package it up" />
     <echo message="  usage             - this help message" />
     <echo message=" " />
+    <echo message="If you want the built jar file to be compatible with versions of Java earlier" />
+    <echo message="than the one you are using to build it, then prepend the 'clean' task and" />
+    <echo message="use the ant.build.javac.target property.  For example:" />
+    <echo message=" " />
+    <echo message="ant -Dant.build.javac.target=1.6 clean jar" />
   </target>
 
 </project>
-

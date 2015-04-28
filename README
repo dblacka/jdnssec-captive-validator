@@ -108,3 +108,30 @@ java -jar dnssecvaltool.jar server=127.0.0.1 \
      query="edu soa"
 
      
+Important Note on Incompatible Java Versions
+--------------------------------------------
+
+As with any other jar file, if this jar file is created (e.g. using 'ant jar' or 'ant dist')
+using a later Java version (e.g. 8) than the one with which it is ultimately run (e.g. 6),
+then you may encounter a runtime error such as this one:
+
+```
+      java.lang.UnsupportedClassVersionError:
+com/verisign/tat/dnssec/CaptiveValidator : Unsupported major.minor version
+52.0 (RuntimeError)
+```
+
+The solution to this is to specify the target Java version when you build the jar file.
+This can be done on the command line with the *ant.build.javac.target* property.
+For example:
+
+```
+ant -Dant.build.javac.target=1.6 clean jar
+```
+
+The *clean* task is added to the command line above to guarantee that the Java source
+files are actually compiled; without it the jar task will use whatever compiled
+class files are already there.
+
+In general, you should probably specify the target value to be the lowest Java version
+you intend to use.
