@@ -12,6 +12,9 @@
   <property name="build.lib.dest" value="${build.dir}/lib" />
   <property name="build.src" value="src" />
 
+  <property name="build.test.src" value="tests" />
+  <property name="build.test.dest" value="${build.dir}/tests/classes" />
+
   <property name="packages" value="com.verisignlabs.dnssec.*" />
   <property name="doc.dir" value="docs" />
   <property name="javadoc.dest" value="${doc.dir}/javadoc" />
@@ -25,9 +28,22 @@
   </path>
   <property name="project.classpath" refid="project.classpath" />
 
+  <!-- set the classpath for the unit tests -->
+  <path id="test.classpath">
+    <pathelement location="${build.dest}" />
+    <fileset dir="${lib.dir}" includes="*.jar,*.zip" />
+    <path location="${build.test.dest}" />
+    <path location="${build.dest}" />
+    <path location="${build.test.src}/junit-3.8.1.jar" />
+  </path>
+
   <target name="prepare-src">
     <mkdir dir="${build.dest}" />
     <mkdir dir="${build.lib.dest}" />
+  </target>
+
+  <target name="prepare-test">
+    <mkdir dir="${build.test.dest}" />
   </target>
 
   <target name="compile" depends="prepare-src" >
@@ -77,6 +93,46 @@
     </tar>
   </target>
 
+  <target name="compile_tests" depends="prepare-test,compile">
+    <javac destdir="${build.test.dest}" debug="true"
+           classpathref="test.classpath"
+           includeantruntime="false"
+           target="1.4"
+           source="1.4">
+      <src path="${build.test.src}"/>
+    </javac>
+  </target>
+
+  <target name="test" depends="compile_tests">
+    <antcall target="_run_tests">
+      <param name="classpathref" value="tests.classpath" />
+    </antcall>
+  </target>
+
+  <target name="_run_tests">
+    <junit fork="yes" forkmode="perTest" dir="${basedir}"
+           haltonerror="on" haltonfailure="on"
+           includeantruntime="true">
+      <classpath>
+        <path location="${build.dest}" />
+        <fileset dir="${lib.dir}" includes="*.jar,*.zip" />
+        <path location="${build.test.dest}" />
+        <path location="${build.dest}" />
+        <path location="${build.test.src}/junit-3.8.1.jar" />
+      </classpath>
+
+      <formatter type="plain" usefile="no" />
+
+      <test name="${testcase}" if="testcase" />
+
+      <batchtest unless="testcase">
+        <fileset dir="${build.test.dest}">
+          <include name="**/*Test.class" />
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
   <target name="clean" depends="usage">
     <delete dir="${build.dest}" />
     <delete dir="${build.lib.dest}" />
@@ -98,4 +154,3 @@
   </target>
 
 </project>
-
