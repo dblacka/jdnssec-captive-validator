@@ -33,7 +33,7 @@ import java.util.*;
 public class Util {
     /**
      * Convert a DNS name into a string suitable for use as a cache key.
-     * 
+     *
      * @param name
      *            The name to convert.
      * @return A string representing the name. This isn't ever meant to be
@@ -78,7 +78,7 @@ public class Util {
     }
 
     public static List<ConfigEntry> parseConfigPrefix(Properties config,
-            String prefix) {
+                                                      String     prefix) {
         if (!prefix.endsWith(".")) {
             prefix = prefix + ".";
         }

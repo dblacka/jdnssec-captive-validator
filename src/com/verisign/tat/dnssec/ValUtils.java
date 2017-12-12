@@ -38,7 +38,7 @@ import java.util.Iterator;
  */
 public class ValUtils {
     private static Logger st_log = Logger.getLogger(ValUtils.class);
-    private Logger log = Logger.getLogger(this.getClass());
+    private Logger        log    = Logger.getLogger(this.getClass());
 
     /** A local copy of the verifier object. */
     private DnsSecVerifier mVerifier;
@@ -49,10 +49,10 @@ public class ValUtils {
 
     /**
      * Given a response, classify ANSWER responses into a subtype.
-     * 
+     *
      * @param m
      *            The response to classify.
-     * 
+     *
      * @return A subtype ranging from UNKNOWN to NAMEERROR.
      */
     public static ResponseType classifyResponse(SMessage m, Name zone) {
@@ -60,8 +60,7 @@ public class ValUtils {
 
         // Normal Name Error's are easy to detect -- but don't mistake a CNAME
         // chain ending in NXDOMAIN.
-        if ((m.getRcode() == Rcode.NXDOMAIN)
-                && (m.getCount(Section.ANSWER) == 0)) {
+        if ((m.getRcode() == Rcode.NXDOMAIN) && (m.getCount(Section.ANSWER) == 0)) {
             return ResponseType.NAMEERROR;
         }
 
@@ -74,8 +73,9 @@ public class ValUtils {
         // 1) nothing in the ANSWER section
         // 2) an NS RRset in the AUTHORITY section that is a strict subdomain of
         // 'zone' (the presumed queried zone).
-        if ((zone != null) && (m.getCount(Section.ANSWER) == 0)
-                && (m.getCount(Section.AUTHORITY) > 0)) {
+        if ((zone != null) && (m.getCount(Section.ANSWER) == 0) &&
+            (m.getCount(Section.AUTHORITY) > 0)) {
+
             rrsets = m.getSectionRRsets(Section.AUTHORITY);
 
             for (int i = 0; i < rrsets.length; ++i) {
@@ -121,10 +121,10 @@ public class ValUtils {
     }
 
     /**
-     * Given a response, determine the name of the "signer". This is primarily
-     * to determine if the response is, in fact, signed at all, and, if so, what
-     * is the name of the most pertinent keyset.
-     * 
+     * Given a response, determine the name of the "signer". This is
+     * primarily to determine if the response is, in fact, signed at
+     * all, and, if so, what is the name of the most pertinent keyset.
+     *
      * @param m
      *            The response to analyze.
      * @return a signer name, if the response is signed (even partially), or
@@ -151,7 +151,7 @@ public class ValUtils {
 
     /**
      * Given a DNSKEY record, generate the DS record from it.
-     * 
+     *
      * @param keyrec
      *            the DNSKEY record in question.
      * @param ds_alg
@@ -204,10 +204,10 @@ public class ValUtils {
 
     /**
      * Check to see if a type is a special DNSSEC type.
-     * 
+     *
      * @param type
      *            The type.
-     * 
+     *
      * @return true if the type is one of the special DNSSEC types.
      */
     public static boolean isDNSSECType(int type) {
@@ -225,9 +225,9 @@ public class ValUtils {
     }
 
     /**
-     * Set the security status of a particular RRset. This will only upgrade the
-     * security status.
-     * 
+     * Set the security status of a particular RRset. This will only
+     * upgrade the security status.
+     *
      * @param rrset
      *            The SRRset to update.
      * @param security
@@ -246,20 +246,9 @@ public class ValUtils {
     }
 
     /**
-     * Set the security status of a message and all of its RRsets. This will
-     * only upgrade the status of the message (i.e., set to more secure, not
-     * less) and all of the RRsets.
-     * 
-     * @param m
-     * @param security
-     *            KeyEntry ke;
-     * 
-     *            SMessage m = response.getSMessage(); SRRset ans_rrset =
-     *            m.findAnswerRRset(qname, qtype, qclass);
-     * 
-     *            ke = verifySRRset(ans_rrset, key_rrset); if
-     *            (ans_rrset.getSecurityStatus() != SecurityStatus.SECURE) {
-     *            return; } key_rrset = ke.getRRset();
+     * Set the security status of a message and all of its
+     * RRsets. This will only upgrade the status of the message (i.e.,
+     * set to more secure, not less) and all of the RRsets.
      */
     public static void setMessageSecurity(SMessage m, byte security) {
         if (m == null) {
@@ -282,10 +271,10 @@ public class ValUtils {
     }
 
     /**
-     * Given an SRRset that is signed by a DNSKEY found in the key_rrset, verify
-     * it. This will return the status (either BOGUS or SECURE) and set that
-     * status in rrset.
-     * 
+     * Given an SRRset that is signed by a DNSKEY found in the
+     * key_rrset, verify it. This will return the status (either BOGUS
+     * or SECURE) and set that status in rrset.
+     *
      * @param rrset
      *            The SRRset to verify.
      * @param key_rrset
@@ -293,13 +282,12 @@ public class ValUtils {
      * @return The status (BOGUS or SECURE).
      */
     public byte verifySRRset(SRRset rrset, SRRset key_rrset) {
-        String rrset_name = rrset.getName() + "/"
-                + Type.string(rrset.getType()) + "/"
-                + DClass.string(rrset.getDClass());
+        String rrset_name = rrset.getName() + "/" + Type.string(rrset.getType()) + "/" +
+            DClass.string(rrset.getDClass());
 
         if (rrset.getSecurityStatus() == SecurityStatus.SECURE) {
-            log.trace("verifySRRset: rrset <" + rrset_name
-                    + "> previously found to be SECURE");
+            log.trace("verifySRRset: rrset <" + rrset_name +
+                      "> previously found to be SECURE");
 
             return SecurityStatus.SECURE;
         }
@@ -307,12 +295,10 @@ public class ValUtils {
         byte status = mVerifier.verify(rrset, key_rrset);
 
         if (status != SecurityStatus.SECURE) {
-            log.debug("verifySRRset: rrset <" + rrset_name
-                    + "> found to be BAD");
+            log.debug("verifySRRset: rrset <" + rrset_name + "> found to be BAD");
             status = SecurityStatus.BOGUS;
         } else {
-            log.trace("verifySRRset: rrset <" + rrset_name
-                    + "> found to be SECURE");
+            log.trace("verifySRRset: rrset <" + rrset_name + "> found to be SECURE");
         }
 
         rrset.setSecurityStatus(status);
@@ -322,7 +308,7 @@ public class ValUtils {
 
     /**
      * Determine if a given type map has a given type.
-     * 
+     *
      * @param types
      *            The type map from the NSEC record.
      * @param type
@@ -350,7 +336,7 @@ public class ValUtils {
 
     /**
      * Finds the longest common name between two domain names.
-     * 
+     *
      * @param domain1
      * @param domain2
      * @return
@@ -395,7 +381,7 @@ public class ValUtils {
     /**
      * Determine by looking at a signed RRset whether or not the rrset name was
      * the result of a wildcard expansion.
-     * 
+     *
      * @param rrset
      *            The rrset to examine.
      * @return true if the rrset is a wildcard expansion. This will return false
@@ -419,7 +405,7 @@ public class ValUtils {
      * Determine by looking at a signed RRset whether or not the RRset name was
      * the result of a wildcard expansion. If so, return the name of the
      * generating wildcard.
-     * 
+     *
      * @param rrset
      *            The rrset to check.
      * @return the wildcard name, if the rrset was synthesized from a wildcard.
@@ -461,9 +447,9 @@ public class ValUtils {
     }
 
     /**
-     * Determine if the given NSEC proves a NameError (NXDOMAIN) for a given
-     * qname.
-     * 
+     * Determine if the given NSEC proves a NameError (NXDOMAIN) for a
+     * given qname.
+     *
      * @param nsec
      *            The NSEC to check.
      * @param qname
@@ -477,7 +463,7 @@ public class ValUtils {
     public static boolean nsecProvesNameError(NSECRecord nsec, Name qname,
             Name signerName) {
         Name owner = nsec.getName();
-        Name next = nsec.getNext();
+        Name next  = nsec.getNext();
 
         // If NSEC owner == qname, then this NSEC proves that qname exists.
         if (qname.equals(owner)) {
@@ -487,16 +473,14 @@ public class ValUtils {
         // If NSEC is a parent of qname, we need to check the type map
         // If the parent name has a DNAME or is a delegation point, then this
         // NSEC is being misused.
-        boolean hasBadType = typeMapHasType(nsec.getTypes(), Type.DNAME)
-                || (typeMapHasType(nsec.getTypes(), Type.NS) && !typeMapHasType(
-                        nsec.getTypes(), Type.SOA));
+        boolean hasBadType = typeMapHasType(nsec.getTypes(), Type.DNAME) ||
+            (typeMapHasType(nsec.getTypes(), Type.NS) && !typeMapHasType(nsec.getTypes(), Type.SOA));
 
         if (qname.subdomain(owner) && hasBadType) {
             return false;
         }
 
-        if (((qname.compareTo(owner) > 0) && (qname.compareTo(next) < 0))
-                || signerName.equals(next)) {
+        if (((qname.compareTo(owner) > 0) && (qname.compareTo(next) < 0)) || signerName.equals(next)) {
             return true;
         }
 
@@ -504,9 +488,9 @@ public class ValUtils {
     }
 
     /**
-     * Determine if a NSEC record proves the non-existence of a wildcard that
-     * could have produced qname.
-     * 
+     * Determine if a NSEC record proves the non-existence of a
+     * wildcard that could have produced qname.
+     *
      * @param nsec
      *            The nsec to check.
      * @param qname
@@ -515,20 +499,18 @@ public class ValUtils {
      *            The signer name for the NSEC rrset, used as the zone name.
      * @return true if the NSEC proves the condition.
      */
-    public static boolean nsecProvesNoWC(NSECRecord nsec, Name qname,
-            Name signerName) {
+    public static boolean nsecProvesNoWC(NSECRecord nsec, Name qname, Name signerName) {
         Name owner = nsec.getName();
-        Name next = nsec.getNext();
+        Name next  = nsec.getNext();
 
-        int qname_labels = qname.labels();
+        int qname_labels  = qname.labels();
         int signer_labels = signerName.labels();
 
         for (int i = qname_labels - signer_labels; i > 0; i--) {
             Name wc_name = qname.wild(i);
 
-            if ((wc_name.compareTo(owner) > 0)
-                    && ((wc_name.compareTo(next) < 0) || signerName
-                            .equals(next))) {
+            if ((wc_name.compareTo(owner) > 0) &&
+                ((wc_name.compareTo(next) < 0) || signerName.equals(next))) {
                 return true;
             }
         }
@@ -537,12 +519,13 @@ public class ValUtils {
     }
 
     /**
-     * Determine if a NSEC proves the NOERROR/NODATA conditions. This will also
-     * handle the empty non-terminal (ENT) case and partially handle the
-     * wildcard case. If the ownername of 'nsec' is a wildcard, the validator
-     * must still be provided proof that qname did not directly exist and that
-     * the wildcard is, in fact, *.closest_encloser.
-     * 
+     * Determine if a NSEC proves the NOERROR/NODATA conditions. This
+     * will also handle the empty non-terminal (ENT) case and
+     * partially handle the wildcard case. If the ownername of 'nsec'
+     * is a wildcard, the validator must still be provided proof that
+     * qname did not directly exist and that the wildcard is, in fact,
+     * *.closest_encloser.
+     *
      * @param nsec
      *            The NSEC to check
      * @param qname
@@ -551,26 +534,23 @@ public class ValUtils {
      *            The query type to check against.
      * @return true if the NSEC proves the condition.
      */
-    public static boolean nsecProvesNodata(NSECRecord nsec, Name qname,
-            int qtype) {
+    public static boolean nsecProvesNodata(NSECRecord nsec, Name qname, int qtype) {
         if (!nsec.getName().equals(qname)) {
             // wildcard checking.
 
-            // If this is a wildcard NSEC, make sure that a) it was possible to
-            // have
-            // generated qname from the wildcard and b) the type map does not
-            // contain qtype. Note that this does NOT prove that this wildcard
-            // was
-            // the applicable wildcard.
+            // If this is a wildcard NSEC, make sure that a) it was
+            // possible to have generated qname from the wildcard and
+            // b) the type map does not contain qtype. Note that this
+            // does NOT prove that this wildcard was the applicable
+            // wildcard.
             if (nsec.getName().isWild()) {
                 // the is the purported closest encloser.
                 Name ce = new Name(nsec.getName(), 1);
 
-                // The qname must be a strict subdomain of the closest encloser,
-                // and
-                // the qtype must be absent from the type map.
-                if (!strictSubdomain(qname, ce)
-                        || typeMapHasType(nsec.getTypes(), qtype)) {
+                // The qname must be a strict subdomain of the closest
+                // encloser, and the qtype must be absent from the
+                // type map.
+                if (!strictSubdomain(qname, ce) || typeMapHasType(nsec.getTypes(), qtype)) {
                     return false;
                 }
 
@@ -579,17 +559,16 @@ public class ValUtils {
 
             // empty-non-terminal checking.
 
-            // If the nsec is proving that qname is an ENT, the nsec owner will
-            // be
-            // less than qname, and the next name will be a child domain of the
-            // qname.
+            // If the nsec is proving that qname is an ENT, the nsec
+            // owner will be less than qname, and the next name will
+            // be a child domain of the qname.
             if (strictSubdomain(nsec.getNext(), qname)
                     && (qname.compareTo(nsec.getName()) > 0)) {
                 return true;
             }
 
-            // Otherwise, this NSEC does not prove ENT, so it does not prove
-            // NODATA.
+            // Otherwise, this NSEC does not prove ENT, so it does not
+            // prove NODATA.
             return false;
         }
 
@@ -598,18 +577,18 @@ public class ValUtils {
             return false;
         }
 
-        // if the name is a CNAME node, then we should have gotten the CNAME
+        // if the name is a CNAME node, then we should have gotten the
+        // CNAME
         if (typeMapHasType(nsec.getTypes(), Type.CNAME)) {
             return false;
         }
 
-        // If an NS set exists at this name, and NOT a SOA (so this is a zone
-        // cut,
-        // not a zone apex), then we should have gotten a referral (or we just
-        // got
-        // the wrong NSEC).
-        if (typeMapHasType(nsec.getTypes(), Type.NS)
-                && !typeMapHasType(nsec.getTypes(), Type.SOA)) {
+        // If an NS set exists at this name, and NOT a SOA (so this is
+        // a zone cut, not a zone apex), then we should have gotten a
+        // referral (or we just got the wrong NSEC).
+        if (typeMapHasType(nsec.getTypes(), Type.NS) &&
+            !typeMapHasType(nsec.getTypes(), Type.SOA)) {
+
             return false;
         }
 
@@ -621,17 +600,16 @@ public class ValUtils {
         int[] types = nsec.getTypes();
 
         if (typeMapHasType(types, Type.SOA) || typeMapHasType(types, Type.DS)) {
-            // SOA present means that this is the NSEC from the child, not the
-            // parent (so it is the wrong one)
-            // DS present means that there should have been a positive response
-            // to
-            // the DS query, so there is something wrong.
+            // SOA present means that this is the NSEC from the child,
+            // not the parent (so it is the wrong one) DS present
+            // means that there should have been a positive response
+            // to the DS query, so there is something wrong.
             return SecurityStatus.BOGUS;
         }
 
         if (!typeMapHasType(types, Type.NS)) {
-            // If there is no NS at this point at all, then this doesn't prove
-            // anything one way or the other.
+            // If there is no NS at this point at all, then this
+            // doesn't prove anything one way or the other.
             return SecurityStatus.INSECURE;
         }
 
@@ -639,13 +617,11 @@ public class ValUtils {
         return SecurityStatus.SECURE;
     }
 
-    // These are response subtypes. They are necessary for determining the
-    // validation strategy. They have no bearing on the iterative resolution
-    // algorithm, so they are confined here.
+    // These are response subtypes. They are necessary for determining
+    // the validation strategy. They have no bearing on the iterative
+    // resolution algorithm, so they are confined here.
     public enum ResponseType {
-        UNTYPED, UNKNOWN, POSITIVE, CNAME, NODATA, NAMEERROR, ANY, REFERRAL,
-        // a referral response
-        THROWAWAY;
-        // a throwaway response (i.e., an error)
+        UNTYPED, UNKNOWN, POSITIVE, CNAME, NODATA, NAMEERROR, ANY, REFERRAL, // a referral response
+        THROWAWAY; // a throwaway response (i.e., an error)
     }
 }

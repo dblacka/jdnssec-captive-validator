@@ -27,13 +27,12 @@ import java.io.Serializable;
 
 /**
  * Codes for DNSSEC security statuses.
- * 
+ *
  * @author davidb
  */
 public class SecurityStatus implements Serializable {
     private static final long serialVersionUID = 1L;
-
-    public static final byte INVALID = -1;
+    public static final byte  INVALID          = -1;
 
     /**
      * UNCHECKED means that object has yet to be validated.

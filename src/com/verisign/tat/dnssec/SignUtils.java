@@ -53,18 +53,19 @@ import java.util.Iterator;
  */
 public class SignUtils {
     // private static final int DSA_SIGNATURE_LENGTH = 20;
-    private static final int ASN1_INT = 0x02;
-    private static final int ASN1_SEQ = 0x30;
-    public static final int RR_NORMAL = 0;
-    public static final int RR_DELEGATION = 1;
-    public static final int RR_GLUE = 2;
-    public static final int RR_INVALID = 3;
+    private static final int ASN1_INT      = 0x02;
+    private static final int ASN1_SEQ      = 0x30;
+    public static  final int RR_NORMAL     = 0;
+    public static  final int RR_DELEGATION = 1;
+    public static  final int RR_GLUE       = 2;
+    public static  final int RR_INVALID    = 3;
+
     private static Logger log = Logger.getLogger(SignUtils.class);
 
     /**
      * Generate from some basic information a prototype SIG RR containing
      * everything but the actual signature itself.
-     * 
+     *
      * @param rrset
      *            the RRset being signed.
      * @param signer
@@ -81,22 +82,27 @@ public class SignUtils {
      *            the TTL of the resulting SIG record.
      * @return a prototype signature based on the RRset and key information.
      */
-    public static RRSIGRecord generatePreRRSIG(RRset rrset, Name signer,
-            int alg, int keyid, Date start, Date expire, long sig_ttl) {
+    public static RRSIGRecord generatePreRRSIG(RRset rrset,
+                                               Name  signer,
+                                               int   alg,
+                                               int   keyid,
+                                               Date  start,
+                                               Date  expire,
+                                               long  sig_ttl) {
         return new RRSIGRecord(rrset.getName(), rrset.getDClass(), sig_ttl,
-                rrset.getType(), alg, rrset.getTTL(), expire, start, keyid,
-                signer, null);
+                               rrset.getType(), alg, rrset.getTTL(), expire, start, keyid,
+                               signer, null);
     }
 
     /**
-     * Generate from some basic information a prototype SIG RR containing
-     * everything but the actual signature itself.
-     * 
+     * Generate from some basic information a prototype SIG RR
+     * containing everything but the actual signature itself.
+     *
      * @param rrset
      *            the RRset being signed.
      * @param key
-     *            the public KEY RR counterpart to the key being used to sign
-     *            the RRset
+     *            the public KEY RR counterpart to the key being used
+     *            to sign the RRset
      * @param start
      *            the SIG inception time.
      * @param expire
@@ -105,16 +111,19 @@ public class SignUtils {
      *            the TTL of the resulting SIG record.
      * @return a prototype signature based on the RRset and key information.
      */
-    public static RRSIGRecord generatePreRRSIG(RRset rrset, DNSKEYRecord key,
-            Date start, Date expire, long sig_ttl) {
-        return generatePreRRSIG(rrset, key.getName(), key.getAlgorithm(), key
-                .getFootprint(), start, expire, sig_ttl);
+    public static RRSIGRecord generatePreRRSIG(RRset        rrset,
+                                               DNSKEYRecord key,
+                                               Date         start,
+                                               Date         expire,
+                                               long         sig_ttl) {
+        return generatePreRRSIG(rrset, key.getName(), key.getAlgorithm(),
+                                key.getFootprint(), start, expire, sig_ttl);
     }
 
     /**
-     * Generate from some basic information a prototype SIG RR containing
-     * everything but the actual signature itself.
-     * 
+     * Generate from some basic information a prototype SIG RR
+     * containing everything but the actual signature itself.
+     *
      * @param rec
      *            the DNS record being signed (forming an entire RRset).
      * @param key
@@ -127,16 +136,19 @@ public class SignUtils {
      *            the TTL of the result SIG record.
      * @return a prototype signature based on the Record and key information.
      */
-    public static RRSIGRecord generatePreRRSIG(Record rec, DNSKEYRecord key,
-            Date start, Date expire, long sig_ttl) {
-        return new RRSIGRecord(rec.getName(), rec.getDClass(), sig_ttl, rec
-                .getType(), key.getAlgorithm(), rec.getTTL(), expire, start,
-                key.getFootprint(), key.getName(), null);
+    public static RRSIGRecord generatePreRRSIG(Record       rec,
+                                               DNSKEYRecord key,
+                                               Date         start,
+                                               Date         expire,
+                                               long         sig_ttl) {
+        return new RRSIGRecord(rec.getName(), rec.getDClass(), sig_ttl,
+                               rec.getType(), key.getAlgorithm(), rec.getTTL(),
+                               expire, start, key.getFootprint(), key.getName(), null);
     }
 
     /**
      * Generate the binary image of the prototype SIG RR.
-     * 
+     *
      * @param presig
      *            the SIG RR prototype.
      * @return the RDATA portion of the prototype SIG record. This forms the
@@ -147,9 +159,9 @@ public class SignUtils {
         DNSOutput image = new DNSOutput();
 
         // precalculate some things
-        int start_time = (int) (presig.getTimeSigned().getTime() / 1000);
-        int expire_time = (int) (presig.getExpire().getTime() / 1000);
-        Name signer = presig.getSigner();
+        int  start_time  = (int) (presig.getTimeSigned().getTime() / 1000);
+        int  expire_time = (int) (presig.getExpire().getTime() / 1000);
+        Name signer      = presig.getSigner();
 
         // first write out the partial SIG record (this is the SIG RDATA
         // minus the actual signature.
@@ -167,7 +179,7 @@ public class SignUtils {
 
     /**
      * Calculate the canonical wire line format of the RRset.
-     * 
+     *
      * @param rrset
      *            the RRset to convert.
      * @param ttl
@@ -180,8 +192,7 @@ public class SignUtils {
      *         part of data to be signed.
      */
     @SuppressWarnings("rawtypes")
-    public static byte[] generateCanonicalRRsetData(RRset rrset, long ttl,
-            int labels) {
+    public static byte[] generateCanonicalRRsetData(RRset rrset, long ttl, int labels) {
         DNSOutput image = new DNSOutput();
 
         if (ttl == 0) {
@@ -202,8 +213,8 @@ public class SignUtils {
         if (n.labels() != labels) {
             n = n.wild(n.labels() - labels);
             wildcardName = true;
-            log.trace("Detected wildcard expansion: " + rrset.getName()
-                    + " changed to " + n);
+            log.trace("Detected wildcard expansion: " + rrset.getName() +
+                      " changed to " + n);
         }
 
         // now convert the wire format records in the RRset into a
@@ -218,8 +229,8 @@ public class SignUtils {
                 // or ownername.
                 // In the TTL case, this avoids changing the ttl in the
                 // response.
-                r = Record.newRecord(n, r.getType(), r.getDClass(), ttl, r
-                        .rdataToWireCanonical());
+                r = Record.newRecord(n, r.getType(), r.getDClass(), ttl,
+                                     r.rdataToWireCanonical());
             }
 
             byte[] wire_fmt = r.toWireCanonical();
@@ -229,8 +240,8 @@ public class SignUtils {
         // put the records into the correct ordering.
         // Calculate the offset where the RDATA begins (we have to skip
         // past the length byte)
-        int offset = rrset.getName().toWireCanonical().length + 10;
-        ByteArrayComparator bac = new ByteArrayComparator(offset, false);
+        int                 offset = rrset.getName().toWireCanonical().length + 10;
+        ByteArrayComparator bac    = new ByteArrayComparator(offset, false);
 
         Collections.sort(canonical_rrs, bac);
 
@@ -243,9 +254,9 @@ public class SignUtils {
     }
 
     /**
-     * Given an RRset and the prototype signature, generate the canonical data
-     * that is to be signed.
-     * 
+     * Given an RRset and the prototype signature, generate the
+     * canonical data that is to be signed.
+     *
      * @param rrset
      *            the RRset to be signed.
      * @param presig
@@ -254,16 +265,15 @@ public class SignUtils {
      */
     public static byte[] generateSigData(RRset rrset, RRSIGRecord presig)
             throws IOException {
-        byte[] rrset_data = generateCanonicalRRsetData(rrset, presig
-                .getOrigTTL(), presig.getLabels());
+        byte[] rrset_data = generateCanonicalRRsetData(rrset, presig.getOrigTTL(), presig.getLabels());
 
         return generateSigData(rrset_data, presig);
     }
 
     /**
-     * Given an RRset and the prototype signature, generate the canonical data
-     * that is to be signed.
-     * 
+     * Given an RRset and the prototype signature, generate the
+     * canonical data that is to be signed.
+     *
      * @param rrset_data
      *            the RRset converted into canonical wire line format (as per
      *            the canonicalization rules in RFC 2535).
@@ -273,11 +283,10 @@ public class SignUtils {
      * @return a block of data ready to be signed.
      */
     public static byte[] generateSigData(byte[] rrset_data, RRSIGRecord presig)
-            throws IOException {
+        throws IOException {
         byte[] sig_rdata = generatePreSigRdata(presig);
 
-        ByteArrayOutputStream image = new ByteArrayOutputStream(
-                sig_rdata.length + rrset_data.length);
+        ByteArrayOutputStream image = new ByteArrayOutputStream(sig_rdata.length + rrset_data.length);
 
         image.write(sig_rdata);
         image.write(rrset_data);
@@ -286,9 +295,9 @@ public class SignUtils {
     }
 
     /**
-     * Given the actual signature and the prototype signature, combine them and
-     * return the fully formed RRSIGRecord.
-     * 
+     * Given the actual signature and the prototype signature, combine
+     * them and return the fully formed RRSIGRecord.
+     *
      * @param signature
      *            the cryptographic signature, in DNSSEC format.
      * @param presig
@@ -296,25 +305,24 @@ public class SignUtils {
      * @return the fully formed RRSIG RR.
      */
     public static RRSIGRecord generateRRSIG(byte[] signature, RRSIGRecord presig) {
-        return new RRSIGRecord(presig.getName(), presig.getDClass(), presig
-                .getTTL(), presig.getTypeCovered(), presig.getAlgorithm(),
-                presig.getOrigTTL(), presig.getExpire(),
-                presig.getTimeSigned(), presig.getFootprint(), presig
-                        .getSigner(), signature);
+        return new RRSIGRecord(presig.getName(), presig.getDClass(),
+                               presig.getTTL(), presig.getTypeCovered(), presig.getAlgorithm(),
+                               presig.getOrigTTL(), presig.getExpire(), presig.getTimeSigned(),
+                               presig.getFootprint(), presig.getSigner(), signature);
     }
 
     /**
-     * Converts from a RFC 2536 formatted DSA signature to a JCE (ASN.1)
-     * formatted signature.
-     * 
+     * Converts from a RFC 2536 formatted DSA signature to a JCE
+     * (ASN.1) formatted signature.
+     *
      * <p>
      * ASN.1 format = ASN1_SEQ . seq_length . ASN1_INT . Rlength . R . ANS1_INT
      * . Slength . S
      * </p>
-     * 
-     * The integers R and S may have a leading null byte to force the integer
-     * positive.
-     * 
+     *
+     * The integers R and S may have a leading null byte to force the
+     * integer positive.
+     *
      * @param signature
      *            the RFC 2536 formatted DSA signature.
      * @return The ASN.1 formatted DSA signature.
@@ -323,10 +331,9 @@ public class SignUtils {
      *             signature.
      */
     public static byte[] convertDSASignature(byte[] signature)
-            throws SignatureException {
+        throws SignatureException {
         if (signature.length != 41) {
-            throw new SignatureException(
-                    "RFC 2536 signature not expected length.");
+            throw new SignatureException("RFC 2536 signature not expected length.");
         }
 
         byte r_pad = 0;
@@ -376,17 +383,17 @@ public class SignUtils {
     }
 
     /**
-     * Converts from a JCE (ASN.1) formatted DSA signature to a RFC 2536
-     * compliant signature.
-     * 
+     * Converts from a JCE (ASN.1) formatted DSA signature to a RFC
+     * 2536 compliant signature.
+     *
      * <p>
      * rfc2536 format = T . R . S
      * </p>
-     * 
+     *
      * where T is a number between 0 and 8, which is based on the DSA key
      * length, and R & S are formatted to be exactly 20 bytes each (no leading
      * null bytes).
-     * 
+     *
      * @param params
      *            the DSA parameters associated with the DSA key used to
      *            generate the signature.
@@ -397,17 +404,15 @@ public class SignUtils {
      *             if something is wrong with the ASN.1 format.
      */
     public static byte[] convertDSASignature(DSAParams params, byte[] signature)
-            throws SignatureException {
+        throws SignatureException {
         if ((signature[0] != ASN1_SEQ) || (signature[2] != ASN1_INT)) {
-            throw new SignatureException(
-                    "Invalid ASN.1 signature format: expected SEQ, INT");
+            throw new SignatureException("Invalid ASN.1 signature format: expected SEQ, INT");
         }
 
         byte r_pad = (byte) (signature[3] - 20);
 
         if (signature[24 + r_pad] != ASN1_INT) {
-            throw new SignatureException(
-                    "Invalid ASN.1 signature format: expected SEQ, INT, INT");
+            throw new SignatureException("Invalid ASN.1 signature format: expected SEQ, INT, INT");
         }
 
         log.trace("(start) ASN.1 DSA Sig:\n" + base64.toString(signature));
@@ -436,15 +441,11 @@ public class SignUtils {
             // S is shorter than 20 bytes, so right justify the number
             // (s_pad is negative here).
             Arrays.fill(sig, 21, 21 - s_pad, (byte) 0);
-            System
-                    .arraycopy(signature, 26 + r_pad, sig, 21 - s_pad,
-                            20 + s_pad);
+            System.arraycopy(signature, 26 + r_pad, sig, 21 - s_pad, 20 + s_pad);
         }
 
         if ((r_pad < 0) || (s_pad < 0)) {
-            log
-                    .trace("(finish ***) RFC 2536 DSA Sig:\n"
-                            + base64.toString(sig));
+            log.trace("(finish ***) RFC 2536 DSA Sig:\n" + base64.toString(sig));
         } else {
             log.trace("(finish) RFC 2536 DSA Sig:\n" + base64.toString(sig));
         }
@@ -453,31 +454,28 @@ public class SignUtils {
     }
 
     /**
-     * This class implements a basic comparator for byte arrays. It is primarily
-     * useful for comparing RDATA portions of DNS records in doing DNSSEC
-     * canonical ordering.
+     * This class implements a basic comparator for byte arrays. It is
+     * primarily useful for comparing RDATA portions of DNS records in
+     * doing DNSSEC canonical ordering.
      */
     public static class ByteArrayComparator implements Comparator<byte[]>, Serializable {
         private static final long serialVersionUID = 1L;
-        private int mOffset = 0;
-        private boolean mDebug = false;
+        private int               mOffset          = 0;
+        private boolean           mDebug           = false;
 
-        public ByteArrayComparator() {
-        }
+        public ByteArrayComparator() { }
 
         public ByteArrayComparator(int offset, boolean debug) {
             mOffset = offset;
-            mDebug = debug;
+            mDebug  = debug;
         }
 
         public int compare(byte[] b1, byte[] b2) throws ClassCastException {
             for (int i = mOffset; (i < b1.length) && (i < b2.length); i++) {
                 if (b1[i] != b2[i]) {
                     if (mDebug) {
-                        System.out
-                                .println("offset " + i + " differs (this is "
-                                        + (i - mOffset)
-                                        + " bytes in from our offset.)");
+                        System.out.println("offset " + i + " differs (this is " + (i - mOffset) +
+                                           " bytes in from our offset.)");
                     }
 
                     return (b1[i] & 0xFF) - (b2[i] & 0xFF);

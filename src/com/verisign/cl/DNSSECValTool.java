@@ -16,25 +16,25 @@ import com.verisign.tat.dnssec.Util;
 public class DNSSECValTool {
 
     /**
-     * Invoke with java -jar dnssecreconciler.jar server=127.0.0.1 \
-     * query_file=queries.txt dnskey_query=net dnskey_query=edu
+     * Invoke with java -jar dnssecvaltool.jar server=127.0.0.1 \
+     *    query_file=queries.txt dnskey_query=net dnskey_query=edu
      */
     private CaptiveValidator validator;
-    private SimpleResolver resolver;
+    private SimpleResolver   resolver;
 
     private BufferedReader queryStream;
-    private PrintStream errorStream;
-    private Set<Name> zoneNames;
+    private PrintStream    errorStream;
+    private Set<Name>      zoneNames;
 
     // Options
-    public String server;
-    public String query;
-    public String queryFile;
-    public String dnskeyFile;
+    public String       server;
+    public String       query;
+    public String       queryFile;
+    public String       dnskeyFile;
     public List<String> dnskeyNames;
-    public String errorFile;
-    public long count = 0;
-    public boolean debug = false;
+    public String       errorFile;
+    public long         count = 0;
+    public boolean      debug = false;
 
     DNSSECValTool() {
         validator = new CaptiveValidator();
@@ -43,23 +43,24 @@ public class DNSSECValTool {
     /**
      * Convert a query line of the form: <qname> <qtype> <flags> to a request
      * message.
-     * 
+     *
      * @param query_line
      * @return A query message
      * @throws TextParseException
      * @throws NameTooLongException
      */
     private Message queryFromString(String query_line)
-            throws TextParseException, NameTooLongException {
+        throws TextParseException, NameTooLongException {
 
         String[] tokens = query_line.split("[ \t]+");
 
-        Name qname = null;
-        int qtype = -1;
-        int qclass = -1;
+        Name qname  = null;
+        int  qtype  = -1;
+        int  qclass = -1;
 
-        if (tokens.length < 1)
+        if (tokens.length < 1) {
             return null;
+        }
         qname = Name.fromString(tokens[0]);
         if (!qname.isAbsolute()) {
             qname = Name.concatenate(qname, Name.root);
@@ -96,8 +97,9 @@ public class DNSSECValTool {
     }
 
     /**
-     * Fetch the next query from either the command line or the query file
-     * 
+     * Fetch the next query from either the command line or the query
+     * file
+     *
      * @return a query Message, or null if the query list is exhausted
      * @throws IOException
      */
@@ -115,20 +117,19 @@ public class DNSSECValTool {
         if (queryStream != null) {
             String line = queryStream.readLine();
 
-            if (line == null)
+            if (line == null) {
                 return null;
-
+            }
             return queryFromString(line);
         }
 
         return null;
-
     }
 
     /**
      * Figure out the correct zone from the query by comparing the qname to the
      * list of trusted DNSKEY owner names.
-     * 
+     *
      * @param query
      * @return a zone name
      * @throws IOException
@@ -158,25 +159,25 @@ public class DNSSECValTool {
     }
 
     private Message resolve(Message query) {
-
         try {
             return resolver.send(query);
         } catch (SocketTimeoutException e) {
-            System.err.println("Error: timed out querying " + server + " for "
-                    + queryToString(query));
+            System.err.println("Error: timed out querying " + server + " for " +
+                               queryToString(query));
         } catch (IOException e) {
-            System.err.println("Error: error querying " + server + " for "
-                    + queryToString(query) + ":" + e.getMessage());
+            System.err.println("Error: error querying " + server + " for " +
+                               queryToString(query) + ":" + e.getMessage());
         }
         return null;
     }
 
     private String queryToString(Message query) {
-        if (query == null)
+        if (query == null) {
             return null;
+        }
         Record question = query.getQuestion();
-        return question.getName() + "/" + Type.string(question.getType()) + "/"
-                + DClass.string(question.getDClass());
+        return question.getName() + "/" + Type.string(question.getType()) + "/" +
+            DClass.string(question.getDClass());
     }
 
     public void execute() throws IOException {
@@ -196,7 +197,7 @@ public class DNSSECValTool {
             validator.addTrustedKeysFromFile(dnskeyFile);
         } else {
             for (String name : dnskeyNames) {
-                Message query = queryFromString(name + " DNSKEY");
+                Message query    = queryFromString(name + " DNSKEY");
                 Message response = resolve(query);
                 validator.addTrustedKeysFromResponse(response);
             }
@@ -214,10 +215,10 @@ public class DNSSECValTool {
         }
 
         // Iterate over all queries
-        Message query = nextQuery();
-        long total = 0;
-        long validCount = 0;
-        long errorCount = 0;
+        Message query      = nextQuery();
+        long    total      = 0;
+        long    validCount = 0;
+        long    errorCount = 0;
 
         while (query != null) {
 
@@ -272,21 +273,22 @@ public class DNSSECValTool {
             }
 
             if (++total % 1000 == 0) {
-                System.out.println("Completed " + total + " queries: "
-                        + validCount + " valid, " + errorCount + " errors.");
+                System.out.println("Completed " + total + " queries: " +
+                                   validCount + " valid, " + errorCount + " errors.");
             }
-         
+
             if (count > 0 && total >= count) {
-                if (debug) System.out.println("DEBUG: reached maximum number of queries, exiting");
+                if (debug) {
+                    System.out.println("DEBUG: reached maximum number of queries, exiting");
+                }
                 break;
             }
-            
+
             query = nextQuery();
         }
 
-        System.out.println("Completed " + total
-                + (total > 1 ? " queries" : " query") +
-                ": " + validCount + " valid, " + errorCount + " errors.");
+        System.out.println("Completed " + total + (total > 1 ? " queries" : " query") +
+                           ": " + validCount + " valid, " + errorCount + " errors.");
     }
 
     private static void usage() {
@@ -321,8 +323,8 @@ public class DNSSECValTool {
                 }
 
                 String[] split_arg = arg.split("=", 2);
-                String opt = split_arg[0];
-                String optarg = split_arg[1];
+                String opt         = split_arg[0];
+                String optarg      = split_arg[1];
 
                 if (opt.equals("server")) {
                     dr.server = optarg;

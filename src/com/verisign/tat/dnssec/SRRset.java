@@ -32,7 +32,7 @@ import java.util.*;
  */
 public class SRRset extends RRset {
     private static final long serialVersionUID = 1L;
-    private SecurityStatus mSecurityStatus;
+    private SecurityStatus    mSecurityStatus;
 
     /** Create a new, blank SRRset. */
     public SRRset() {
