@@ -1,3 +1,7 @@
 build
 .classpath
 .project
+.ant-targets-build.xml
+GPATH
+GRTAGS
+GTAGS
