@@ -243,6 +243,10 @@ public class DNSSECValTool {
             }
             byte result = validator.validateMessage(response, zone.toString());
 
+            if (debug) {
+                System.out.println(response);
+            }
+
             switch (result) {
             case SecurityStatus.BOGUS:
             case SecurityStatus.INVALID:

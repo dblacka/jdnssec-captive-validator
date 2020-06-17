@@ -26,7 +26,7 @@ package com.verisign.tat.dnssec;
 import org.apache.log4j.Logger;
 
 import org.xbill.DNS.*;
-import org.xbill.DNS.security.*;
+import org.xbill.DNS.DNSSEC.DNSSECException;
 
 import java.io.*;
 
@@ -237,7 +237,7 @@ public class DnsSecVerifier {
         return SecurityStatus.SECURE;
     }
 
-    public PublicKey parseDNSKEY(DNSKEYRecord key) {
+    public PublicKey parseDNSKEY(DNSKEYRecord key) throws DNSSECException {
         AlgEntry ae = (AlgEntry) mAlgorithmMap.get(Integer.valueOf(key.getAlgorithm()));
 
         if (key.getAlgorithm() != ae.dnssecAlg) {
@@ -250,7 +250,7 @@ public class DnsSecVerifier {
                                    ae.dnssecAlg, key.getKey());
         }
 
-        return KEYConverter.parseRecord(key);
+        return key.getPublicKey();
     }
 
     /**
@@ -304,6 +304,8 @@ public class DnsSecVerifier {
             log.trace("Signature verified: " + sigrec);
 
             return SecurityStatus.SECURE;
+        } catch (DNSSECException e) {
+            log.error("DNSSEC key parsing error", e);
         } catch (IOException e) {
             log.error("I/O error", e);
         } catch (GeneralSecurityException e) {

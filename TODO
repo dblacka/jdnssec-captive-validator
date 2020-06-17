@@ -1,22 +1,23 @@
 TODO
 
-* Complete CNAME response validation code.
+* Remove references to TAT
 
-  This differs from the original Unbound code in that it can only
-  validate CNAME/DNAME chains as long as we have the exact keys for
-  each element of the chain.  The Unbound (java) version solved this
-  by requerying for each element of the CNAME chain and validating
-  each element independently (that is, it could construct a chain of
-  trust to each link separately).
+  TAT was an internal, java-based test framework that is no longer in
+  use.  Instead this code is generally just invoked directly from the
+  command line.  Results are generally determined from the log output.
 
-* Add way to report errors and validation failure conditions.
+* Implement some form of parallelism.
 
-  For the TAT handler, what we want is a way to fetch all of the
-  various reason why a validation failed, so it can be spit out in the
-  test results.  A globally available vector of error messages?  Pass
-  around a vector of error messages?
+  A common use case for this tool is to give it a (possibly long) list
+  of queries to do.  Right now, it will just process them serially.
+  However, with some parallelism, we should be able to go faster.
 
-* Create the TAT handler that uses this bit of code.
+* Complete CNAME response validation code (in progress).
 
-
-
+  In the unbound-prototype, we split the CNAME chain and then
+  requeried for each element of the chain.  This would allow us to
+  re-determine the chain of trust for each element.  In this code,
+  however, since we don't have a facility (nor want one) to establish
+  chains of trust, we are going to try and validate the response in
+  one pass.  Note that we have to account for wildcard CNAME
+  expressions, as well as validate the end-of-chain.
