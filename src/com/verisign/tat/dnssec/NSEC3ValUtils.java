@@ -312,7 +312,7 @@ public class NSEC3ValUtils {
 
         // This scans from longest name to shortest, so the first match we find
         // is the only viable candidate.
-        // FIXME: modify so that the NSEC3 matching the zone apex need not be
+        // TODO: modify so that the NSEC3 matching the zone apex need not be
         // present.
         while (n.labels() >= zonename.labels()) {
             nsec3 = findMatchingNSEC3(hash(n, params), zonename, nsec3s, params, bac);
@@ -581,34 +581,39 @@ public class NSEC3ValUtils {
     }
 
     /**
-     * Determine if the NSEC3s provided in a response prove the
-     * NOERROR/NODATA status. There are a number of different variants
-     * to this:
+     * Determine if the NSEC3s provided in a response prove the NOERROR/NODATA
+     * status. There are a number of different variants to this listed in RFC
+     * 5155:
      *
-     * 1) Normal NODATA -- qname is matched to an NSEC3 record, type is not
-     * present.
+     * 1) NODATA, qtype is not DS (section 8.5)
+     * 2) NODATA, qtype is DS (section 8.6)
+     * 3) Wildcard NODATA (section 8.7)
      *
-     * 2) ENT NODATA -- because there must be NSEC3 record for
-     * empty-non-terminals, this is the same as #1.
+     * #1 assumes that you are querying an actual node, and thus have a matching
+     * NSEC3. What is not accounted for are ENTs created by insecure delegations
+     * while using Opt-Out.
      *
-     * 3) NSEC3 ownername NODATA -- qname matched an existing, lone NSEC3
-     * ownername, but qtype was not NSEC3. NOTE: as of nsec-05, this case no
-     * longer exists.
+     * #2 assumes that the only way to get a NODATA out of an Opt-Out span is to
+     * match an insecure delegation but have the qtype be DS.
      *
-     * 4) Wildcard NODATA -- A wildcard matched the name, but not the type.
+     * This missing corner case is addressed in an errata:
+     * https://www.rfc-editor.org/errata/rfc5155
      *
-     * 5) Opt-In DS NODATA -- the qname is covered by an opt-in span and qtype
-     * == DS. (or maybe some future record with the same parent-side-only
-     * property)
+     * Thus we split case #1 into two sub-cases:
+     * 1a) NODATA, qtype is not DS and we have a matching NSEC3
+     * 1b) NODATA, qtype is not DS and we do not have a matching NSEC3
      *
-     * @param nsec3s
-     *            The NSEC3Records to consider.
-     * @param qname
-     *            The qname in question.
-     * @param qtype
-     *            The qtype in question.
-     * @param zonename
-     *            The name of the zone that the NSEC3s came from.
+     * And case 2 can split into two cases:
+     * 2a) NODATA, qtype is DS and we have a matching NSEC3
+     * 2b) NODATA, qtype is DS and we do not have a matching NSEC3
+     *
+     * 1b and 2b end up having the same logic. The NSEC3 that covers the next
+     * closest encloser must have the opt-out bit set.
+     *
+     * @param nsec3s The NSEC3Records to consider.
+     * @param qname The qname in question.
+     * @param qtype The qtype in question.
+     * @param zonename The name of the zone that the NSEC3s came from.
      * @return true if the NSEC3s prove the proposition.
      */
     public static boolean proveNodata(List<NSEC3Record> nsec3s,
@@ -634,7 +639,7 @@ public class NSEC3ValUtils {
         NSEC3Record nsec3 = findMatchingNSEC3(hash(qname, nsec3params),
                                               zonename, nsec3s, nsec3params, bac);
 
-        // Cases 1 & 2.
+        // Cases 1a & 2a.
         if (nsec3 != null) {
             if (nsec3.hasType(qtype)) {
                 st_log.debug("proveNodata: Matching NSEC3 proved that type existed!");
@@ -652,7 +657,7 @@ public class NSEC3ValUtils {
             return true;
         }
 
-        // For cases 3 - 5, we need the proven closest encloser, and it can't
+        // For cases 1b, 2b, and 3, we need the proven closest encloser, and it can't
         // match qname. Although, at this point, we know that it won't since we
         // just checked that.
         CEResponse ce = proveClosestEncloser(qname, zonename, nsec3s,
@@ -667,9 +672,7 @@ public class NSEC3ValUtils {
             return false;
         }
 
-        // Case 3: REMOVED
-
-        // Case 4:
+        // Case 3:
         Name wc = ceWildcard(ce.closestEncloser);
         nsec3 = findMatchingNSEC3(hash(wc, nsec3params), zonename, nsec3s,
                                   nsec3params, bac);

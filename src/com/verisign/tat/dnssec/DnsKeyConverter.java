@@ -106,9 +106,8 @@ public class DnsKeyConverter
         try {
             return new DNSKEYRecord(name, dclass, ttl, flags, DNSKEYRecord.Protocol.DNSSEC, alg, key);
         } catch (DNSSECException e) {
-            // FIXME: this mimics the behavior of
-            // KEYConverter.buildRecord(), which would return null if
-            // the algorithm was unknown.
+            // This mimics the behavior of KEYConverter.buildRecord(), which
+            // would return null if the algorithm was unknown.
             return null;
         }
     }

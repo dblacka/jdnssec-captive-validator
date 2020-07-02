@@ -109,7 +109,7 @@ public class DnsSecVerifier {
         // Algorithm configuration
 
         // For now, we just accept new identifiers for existing algorithms.
-        // FIXME: handle private identifiers.
+        // TODO: handle private identifiers.
         List<Util.ConfigEntry> aliases = Util.parseConfigPrefix(config, "dns.algorithm.");
 
         for (Util.ConfigEntry entry : aliases) {
