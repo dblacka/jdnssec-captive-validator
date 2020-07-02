@@ -243,10 +243,6 @@ public class DNSSECValTool {
             }
             byte result = validator.validateMessage(response, zone.toString());
 
-            if (debug) {
-                System.out.println(response);
-            }
-
             switch (result) {
             case SecurityStatus.BOGUS:
             case SecurityStatus.INVALID:
@@ -271,7 +267,10 @@ public class DNSSECValTool {
                 errorCount++;
                 break;
             case SecurityStatus.SECURE:
-                if (debug) System.out.println("DEBUG: response for " + queryToString(query) + " was valid.");
+                if (debug) {
+                    System.out.println("DEBUG: response for " + queryToString(query) + " was valid.");
+                    System.out.println("Response:\n" + response);
+                }
                 validCount++;
                 break;
             }
@@ -349,6 +348,11 @@ public class DNSSECValTool {
                     dr.dnskeyNames.add(optarg);
                 } else if (opt.equals("debug")) {
                     dr.debug = Boolean.parseBoolean(optarg);
+                } else if (opt.equals("trace")) {
+                    dr.debug = Boolean.parseBoolean(optarg);
+                    if (dr.debug) {
+                        rootLogger.setLevel(Level.TRACE);
+                    }
                 } else {
                     System.err.println("Unrecognized option: " + opt);
                     usage();
