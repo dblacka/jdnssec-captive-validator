@@ -424,7 +424,13 @@ public class ValUtils {
         int label_diff = (rrset.getName().labels() - 1) - rrsig.getLabels();
 
         if (label_diff > 0) {
-            return rrset.getName().wild(label_diff);
+            Name wc = rrset.getName().wild(label_diff);
+            // if the name was the wildcard itself, this isn't actually a
+            // wildcard expansion.
+            if (wc.equals(rrset.getName())) {
+                return null;
+            }
+            return wc;
         }
 
         return null;
