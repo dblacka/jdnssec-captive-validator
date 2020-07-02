@@ -687,14 +687,7 @@ public class NSEC3ValUtils {
             return true;
         }
 
-        // Case 5.
-        if (qtype != Type.DS) {
-            st_log.debug("proveNodata: could not find matching NSEC3, " +
-                         "nor matching wildcard, and qtype is not DS -- no more options.");
-
-            return false;
-        }
-
+        // Cases 1b and 2b
         // We need to make sure that the covering NSEC3 is opt-in.
         if (!isOptOut(ce.nc_nsec3)) {
             st_log.debug("proveNodata: covering NSEC3 was not " +
