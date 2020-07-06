@@ -494,7 +494,7 @@ public class CaptiveValidator {
             int type = rrsets[i].getType();
 
             // The NS RRset won't be signed, but everything else
-            // should be.  FIXME: if we have an unexpected type here
+            // should be.  If we have an unexpected type here
             // with a bad signature, we will fail when we otherwise
             // might just have warned about the odd record.  Consider
             // checking the types first, then validating.
@@ -1055,7 +1055,7 @@ public class CaptiveValidator {
             }
         }
 
-        // FIXME: it is unclear if we should actually normalize our
+        // It is unclear if we should actually normalize our
         // responses Instead, maybe we should just fail if they are
         // not normal?
         message = normalize(message);

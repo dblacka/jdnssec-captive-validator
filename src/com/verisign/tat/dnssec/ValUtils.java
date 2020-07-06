@@ -131,7 +131,7 @@ public class ValUtils {
      *         null if the response isn't signed.
      */
     public Name findSigner(SMessage m) {
-        // FIXME: this used to classify the message, then look in the pertinent
+        // This used to classify the message, then look in the pertinent
         // section. Now we just find the first RRSIG in the ANSWER and AUTHORIY
         // sections.
         for (int section = Section.ANSWER; section < Section.ADDITIONAL; ++section) {
