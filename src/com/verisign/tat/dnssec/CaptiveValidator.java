@@ -611,44 +611,88 @@ public class CaptiveValidator {
         m.setStatus(SecurityStatus.BOGUS);
     }
 
+    // When processing CNAME responses, if we have wildcard-generated CNAMEs we
+    // have to keep track of several bits of information per-cname.  This small
+    // inner class is for that.
+    class CNAMEWildcardEntry {
+        public Name owner;
+        public Name wildcard;
+        public Name signer;
+
+        public CNAMEWildcardEntry(Name owner, Name wildcard, Name signer) {
+            this.owner    = owner;
+            this.wildcard = wildcard;
+            this.signer   = signer;
+        }
+    }
+
+    // When processing CNAME responses, our final step is check the end of the
+    // chain if we ended up in zone. To that end, we generate a temporary
+    // message that removes the CNAME/DNAME chain.
+    private SMessage messageFromCNAME(SMessage source, Name sname, Name zone) {
+
+        SMessage m = new SMessage();
+        m.setHeader(source.getHeader());
+        Record oldQuestion = source.getQuestion();
+        Record newQuestion = Record.newRecord(sname, oldQuestion.getType(), oldQuestion.getDClass());
+        m.setQuestion(newQuestion);
+        m.setOPT(source.getOPT());
+
+        // Add the rrsets from the source message, stripping answers that don't
+        // belong to the end of the chain
+        RRset[] rrsets = source.getSectionRRsets(Section.ANSWER);
+        for (int i = 0; i < rrsets.length; i++) {
+            Name rname = rrsets[i].getName();
+
+            if (rname.equals(sname)) {
+                m.addRRset(rrsets[i], Section.ANSWER);
+            }
+        }
+
+        // The authority and additional sections should be about the end of the
+        // chain, plus some additional NSEC or NSEC3 records.
+        for (int i = Section.AUTHORITY; i <= Section.ADDITIONAL; i++) {
+            rrsets = source.getSectionRRsets(i);
+
+            for (int j = 0; j < rrsets.length; j++) {
+                m.addRRset(rrsets[j], i);
+            }
+        }
+        return m;
+    }
+
     /**
-     * Given a "CNAME" response (i.e., a response that contains at
-     * least one CNAME, and qtype != CNAME).  This largely consists of
-     * validating each CNAME RRset until the CNAME chain goes "out of
-     * zone".  Note that out-of-order CNAME chains will have been
-     * cleaned up via normalize().  When traversing the CNAME chain,
-     * we detect if the CNAME were generated from a wildcard, and we
-     * detect when the chain goes "out-of-zone".  If the chain doesn't
-     * go out-of-zone, we then determine if the CNAME response was
-     * positive or negative (i.e., did it end with a non-CNAME
-     * RRset?).  For each in-zone wildcard generated CNAME, we check
-     * for a proof that the alias (the owner of each cname) doesn't
-     * exist.  If the response is negative (i.e., remains in-zone and
-     * results in no RRset, we do a NODATA or NXDOMAIN proof based on
-     * the actual RCODE.
+     * Given a "CNAME" response (i.e., a response that contains at least one
+     * CNAME, and qtype != CNAME).  This largely consists of validating each
+     * CNAME RRset until the CNAME chain goes "out of zone".  Note that
+     * out-of-order CNAME chains will have been cleaned up via normalize(). When
+     * traversing the CNAME chain, we detect if the CNAMEs were generated from a
+     * wildcard, and we detect when the chain goes "out-of-zone".  For each
+     * in-zone wildcard generated CNAME, we check for a proof that the alias
+     * (the owner of each cname) doesn't exist.
      *
-     * Note that once the CNAME chain goes out of zone, any further
-     * CNAMEs are not DNSSEC validated (we would need more trusted
-     * keysets for that), so this isn't useful in all cases (i.e., for
-     * testing a nameserver, like BIND, which generates CNAME chains
-     * across zones.)
+     * If the end of the chain is still in zone, we then strip the CNAME/DNAME
+     * chain, reclassify the response, then validate the "tail message".
      *
-     * Note that by the time this method is called, the process of
-     * finding the trusted DNSKEY rrset that signs this reponse must
-     * already have been completed.
+     * Note that once the CNAME chain goes out of zone, any further CNAMEs are
+     * not DNSSEC validated (we would need more trusted keysets for that), so
+     * this isn't useful in all cases (i.e., for testing a nameserver, like
+     * BIND, which generates CNAME chains across zones.)
+     *
+     * Note that by the time this method is called, the process of finding the
+     * trusted DNSKEY rrset that signs this response must already have been
+     * completed.
      */
     private void validateCNAMEResponse(SMessage message, SRRset key_rrset)
     {
         Name qname = message.getQName();
-        int  qtype = message.getQType();
 
-        Name       sname     = qname; // this is the "current" name in the chain
-        boolean    dname     = false; // a flag indicating that prev iteration was a dname
-        boolean    inZone    = true; // a flag telling us if we ended up in zone.
-        boolean    positive  = false; // a flag telling us if we ended with a positive answer
-        List<Name> wildcards = new Vector<Name>();
-        Name       wc        = null;
-        Name       zone      = key_rrset.getName();
+        Name                     sname     = qname;  // this is the "current" name in the chain
+        boolean                  dname     = false;  // a flag indicating that prev iteration was a dname
+        boolean                  inZone    = true;   // a flag telling us if we ended up in zone.
+        List<CNAMEWildcardEntry> wildcards = 
+            new ArrayList<CNAMEWildcardEntry>();     // The CNAMEs that were generated with wildcards.
+        Name zone = key_rrset.getName();
 
         SRRset[] rrsets = message.getSectionRRsets(Section.ANSWER);
 
@@ -662,6 +706,7 @@ public class CaptiveValidator {
             if (rtype == Type.CNAME) {
                 // If we've gotten off track...  Note: this should be
                 // impossible with normalization in effect.
+
                 if (!sname.equals(rname)) {
                     mErrorList.add("CNAME chain is broken: expected owner name of " +
                                    sname + " got: " + rname);
@@ -671,20 +716,21 @@ public class CaptiveValidator {
 
                 sname = ((CNAMERecord) rrsets[i].first()).getAlias();
 
-                // Check to see if the CNAME was generated by a
-                // wildcard.  We store the generated name instead of
-                // the wildcard value, as we need to prove that the
-                // wildcard wasn't blocked.
-                wc = ValUtils.rrsetWildcard(rrsets[i]);
-                if (wc != null) {
-                    wildcards.add(sname);
+                // Check to see if the CNAME was generated by a wildcard.  We
+                // store the generated name instead of the wildcard value, as we
+                // need to prove that the wildcard wasn't blocked.  For now, we
+                // only want to do that for "in zone" wildcard CNAMEs
+                Name wc = ValUtils.rrsetWildcard(rrsets[i]);
+                if (wc != null && inZone) {
+                    RRSIGRecord rrsig = rrsets[i].firstSig();
+                    wildcards.add(new CNAMEWildcardEntry(sname, wc, rrsig.getSigner()));
                 }
             }
 
             // Note when we see a DNAME.
             if (rtype == Type.DNAME) {
                 dname = true;
-                wc = ValUtils.rrsetWildcard(rrsets[i]);
+                Name wc = ValUtils.rrsetWildcard(rrsets[i]);
                 if (wc != null) {
                     mErrorList.add("Illegal wildcard DNAME found: " + rrsets[i]);
                 }
@@ -698,17 +744,6 @@ public class CaptiveValidator {
                 continue;
             }
 
-            if (rtype == qtype) {
-                positive = true;
-            }
-
-            // Once we've gone off the reservation, avoid further
-            // validation.
-            if (! rname.subdomain(zone)) {
-                inZone = false;
-                break;
-            }
-
             int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
 
             if (status != SecurityStatus.SECURE) {
@@ -718,18 +753,134 @@ public class CaptiveValidator {
 
                 return;
             }
+
+            // Once we've gone off the reservation, avoid further
+            // validation.
+            if (! sname.subdomain(zone)) {
+                inZone = false;
+                break;
+            }
         }
 
+        log.trace("processed CNAME chain and ended with: " +
+                sname + "; inZone = " + inZone);
+
+        // Keep track of NSEC and NSEC3 records we find in the auth section
+        // Only add verified records, though.
+        List<NSECRecord>  nsecs  = new ArrayList<NSECRecord>();
+        List<NSEC3Record> nsec3s = new ArrayList<NSEC3Record>();
 
         // Validate the AUTHORITY section.
         rrsets = message.getSectionRRsets(Section.ANSWER);
         for (int i = 0; i < rrsets.length; i++) {
+            Name rname = rrsets[i].getName();
+            int  rtype = rrsets[i].getType();
 
+            if (! rname.subdomain(zone)) {
+                // Skip auth records that are not in our zone
+                // This is a current limitation of this method
+                continue;
+            }
 
+            int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+
+            // If anything in the authority section fails to be
+            // secure, we have a bad message.
+            if (status != SecurityStatus.SECURE) {
+                mErrorList.add("Positive response has failed AUTHORITY rrset: " +
+                               rrsets[i]);
+                message.setStatus(SecurityStatus.BOGUS);
+
+                return;
+            }
+
+            // otherwise, collect the validated NSEC and NSEC3 RRs, if any
+            if (rtype == Type.NSEC) {
+                nsecs.add((NSECRecord) rrsets[i].first());
+            }
+            else if (rtype == Type.NSEC3) {
+                nsec3s.add((NSEC3Record) rrsets[i].first());
+            }
         }
 
-        log.trace("Successfully validated CNAME response");
-        message.setStatus(SecurityStatus.SECURE);
+        // Regardless if whether or not we left the reservation, if some of our
+        // CNAMEs were generated from wildcards we need to prove that.
+        if (wildcards.size() > 0) {
+
+            for (CNAMEWildcardEntry wcEntry : wildcards) {
+                boolean result = false;
+                if (nsecs.size() > 0) {
+                    for (NSECRecord nsec : nsecs) {
+                        result = ValUtils.nsecProvesNameError(nsec, wcEntry.owner, wcEntry.signer);
+                        if (result) break;
+                    }
+                }
+                else if (nsec3s.size() > 0) {
+                    result = NSEC3ValUtils.proveWildcard(nsec3s, wcEntry.owner, zone, wcEntry.wildcard, mErrorList);
+                }
+
+                if (!result) {
+                    mErrorList.add("CNAME response has a wildcard-generated CNAME '" +
+                                   wcEntry.owner + "' but does not prove that the wildcard '" +
+                                   wcEntry.wildcard + "' was valid via a covering NSEC or NSEC3 RR");
+                    message.setStatus(SecurityStatus.BOGUS);
+                    return;
+                }
+            }
+        }
+
+        // If our CNAME chain took us out of zone, we are done.
+        if (! inZone) {
+            log.trace("Successfully validated CNAME response up to the point where it left our zone.");
+            message.setStatus(SecurityStatus.SECURE);
+            return;
+        }
+
+        // Otherwise, we need to do some additional proofs
+        SMessage tailMessage = messageFromCNAME(message, sname, zone);
+        ValUtils.ResponseType tailType = ValUtils.classifyResponse(tailMessage, zone);
+        switch (tailType) {
+            case POSITIVE:
+            log.trace("Validating the rest of the CNAME response as a positive response");
+            validatePositiveResponse(tailMessage, key_rrset);
+            message.setSecurityStatus(tailMessage.getSecurityStatus());
+            break;
+
+        case REFERRAL:
+            log.trace("Validating the rest of the CNAME response as a referral");
+            validateReferral(tailMessage, key_rrset);
+            message.setSecurityStatus(tailMessage.getSecurityStatus());
+            break;
+
+        case NODATA:
+            log.trace("Validating the rest of the CNAME responses as a NODATA response");
+            validateNodataResponse(tailMessage, key_rrset, mErrorList);
+            message.setSecurityStatus(tailMessage.getSecurityStatus());
+            break;
+
+        case NAMEERROR:
+            log.trace("Validating a the rest of the CNAME responses as NXDOMAIN response");
+            validateNameErrorResponse(tailMessage, key_rrset);
+            message.setSecurityStatus(tailMessage.getSecurityStatus());
+            break;
+
+        case CNAME:
+            log.error("Reclassified the tail of a CNAME response as a CNAME");
+            log.error(tailMessage);
+            message.setStatus(SecurityStatus.BOGUS);
+            break;
+
+        case ANY:
+            log.error("Reclassified the tail of a CNAME response as an ANY response");
+            log.error(tailMessage);
+            message.setStatus(SecurityStatus.BOGUS);
+            break;
+
+        default:
+            log.error("unhandled response subtype: " + tailType);
+            message.setStatus(SecurityStatus.BOGUS);
+            break;
+        }
     }
 
     /**

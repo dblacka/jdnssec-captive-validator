@@ -65,7 +65,8 @@ public class ValUtils {
         }
 
         // If rcode isn't NXDOMAIN or NOERROR, it is a throwaway response.
-        if (m.getRcode() != Rcode.NOERROR) {
+        // E.g., SERVFAIL, FORMERR, REFUSED
+        if (m.getRcode() != Rcode.NOERROR && m.getRcode() != Rcode.NXDOMAIN) {
             return ResponseType.THROWAWAY;
         }
 
