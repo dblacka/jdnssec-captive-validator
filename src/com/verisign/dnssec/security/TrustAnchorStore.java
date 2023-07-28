@@ -21,11 +21,17 @@
  *                                                                         *
 \***************************************************************************/
 
-package com.verisign.tat.dnssec;
+package com.verisign.dnssec.security;
 
-import org.xbill.DNS.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
-import java.util.*;
+import org.xbill.DNS.DNSKEYRecord;
+import org.xbill.DNS.DNSSEC;
+import org.xbill.DNS.Name;
+import org.xbill.DNS.Record;
 
 /**
  *
@@ -43,7 +49,7 @@ public class TrustAnchorStore {
 
     public void store(SRRset rrset) {
         if (mMap == null) {
-            mMap = new HashMap<String, SRRset>();
+            mMap = new HashMap<>();
         }
 
         String k = key(rrset.getName(), rrset.getDClass());
@@ -84,19 +90,19 @@ public class TrustAnchorStore {
     }
 
     public List<String> listTrustAnchors() {
-        List<String> res = new ArrayList<String>();
+        List<String> res = new ArrayList<>();
 
         if (mMap == null) {
             return res;
         }
 
         for (Map.Entry<String, SRRset> entry : mMap.entrySet()) {
-            for (Iterator<Record> i = entry.getValue().rrs(); i.hasNext();) {
-                DNSKEYRecord r = (DNSKEYRecord) i.next();
-                String key_desc = r.getName().toString() + "/" +
-                    DNSSEC.Algorithm.string(r.getAlgorithm()) + "/" +
-                    r.getFootprint();
-                res.add(key_desc);
+            for (Record rec : entry.getValue().rrs()) {
+                DNSKEYRecord r = (DNSKEYRecord) rec;
+                String keyDesc = r.getName().toString() + "/"
+                        + DNSSEC.Algorithm.string(r.getAlgorithm()) + "/"
+                        + r.getFootprint();
+                res.add(keyDesc);
             }
         }
 

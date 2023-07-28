@@ -1,23 +1,7 @@
-TODO
-
-* Remove references to TAT
-
-  TAT was an internal, java-based test framework that is no longer in
-  use.  Instead this code is generally just invoked directly from the
-  command line.  Results are generally determined from the log output.
+# TODO
 
 * Implement some form of parallelism.
 
   A common use case for this tool is to give it a (possibly long) list
   of queries to do.  Right now, it will just process them serially.
   However, with some parallelism, we should be able to go faster.
-
-* Complete CNAME response validation code (in progress).
-
-  In the unbound-prototype, we split the CNAME chain and then
-  requeried for each element of the chain.  This would allow us to
-  re-determine the chain of trust for each element.  In this code,
-  however, since we don't have a facility (nor want one) to establish
-  chains of trust, we are going to try and validate the response in
-  one pass.  Note that we have to account for wildcard CNAME
-  expressions, as well as validate the end-of-chain.

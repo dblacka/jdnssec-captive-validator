@@ -21,18 +21,20 @@
  *                                                                         *
 \***************************************************************************/
 
-package com.verisign.tat.dnssec;
+package com.verisign.dnssec.security;
 
-import org.xbill.DNS.*;
-
-import java.util.*;
+import org.xbill.DNS.Name;
+import org.xbill.DNS.RRSIGRecord;
+import org.xbill.DNS.RRset;
+import org.xbill.DNS.Record;
+import org.xbill.DNS.Type;
 
 /**
  * A version of the RRset class overrides the standard security status.
  */
 public class SRRset extends RRset {
     private static final long serialVersionUID = 1L;
-    private SecurityStatus    mSecurityStatus;
+    private SecurityStatus mSecurityStatus;
 
     /** Create a new, blank SRRset. */
     public SRRset() {
@@ -44,17 +46,32 @@ public class SRRset extends RRset {
      * Create a new SRRset from an existing RRset. This SRRset will contain that
      * same internal Record objects as the original RRset.
      */
-    @SuppressWarnings("rawtypes")
     public SRRset(RRset r) {
         this();
 
-        for (Iterator i = r.rrs(); i.hasNext();) {
-            addRR((Record) i.next());
+        for (Record rec : r.rrs()) {
+            addRR(rec);
         }
 
-        for (Iterator i = r.sigs(); i.hasNext();) {
-            addRR((Record) i.next());
+        for (RRSIGRecord sig : r.sigs()) {
+            addRR(sig);
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        return super.equals(o);
+    }
+
+    public boolean equals(Record rec) {
+        return (this.getName() == rec.getName()
+                && this.getDClass() == rec.getDClass()
+                && this.getType() == rec.getType());
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
     }
 
     /**
@@ -81,25 +98,8 @@ public class SRRset extends RRset {
         mSecurityStatus.setStatus(status);
     }
 
-    @SuppressWarnings("unchecked")
-    public Iterator<Record> rrs() {
-        return (Iterator<Record>) super.rrs();
-    }
-
-    @SuppressWarnings("unchecked")
-    public Iterator<RRSIGRecord> sigs() {
-        return (Iterator<RRSIGRecord>) super.sigs();
-    }
-
     public int totalSize() {
-        int num_sigs = 0;
-
-        for (Iterator<RRSIGRecord> i = sigs(); i.hasNext();) {
-            num_sigs++;
-            i.next();
-        }
-
-        return size() + num_sigs;
+        return size() + sigs().size();
     }
 
     /**
@@ -110,11 +110,9 @@ public class SRRset extends RRset {
     }
 
     public RRSIGRecord firstSig() {
-        for (Iterator<RRSIGRecord> i = sigs(); i.hasNext();) {
-            return i.next();
-        }
-
-        return null;
+        if (sigs().isEmpty())
+            return null;
+        return sigs().get(0);
     }
 
     /**
@@ -133,7 +131,7 @@ public class SRRset extends RRset {
      * @return The "signer" name for this SRRset, if signed, or null if not.
      */
     public Name getSignerName() {
-        RRSIGRecord sig = (RRSIGRecord) firstSig();
+        RRSIGRecord sig = firstSig();
 
         if (sig == null) {
             return null;

@@ -21,7 +21,7 @@
  *                                                                         *
 \***************************************************************************/
 
-package com.verisign.tat.dnssec;
+package com.verisign.dnssec.security;
 
 import java.io.Serializable;
 

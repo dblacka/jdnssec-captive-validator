@@ -21,16 +21,24 @@
  *                                                                         *
 \***************************************************************************/
 
-package com.verisign.tat.dnssec;
+package com.verisign.dnssec.security;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import org.xbill.DNS.Name;
-
-import java.util.*;
 
 /**
  * Some basic utility functions.
  */
 public class Util {
+
+    private Util() {
+        throw new IllegalStateException("Util class");
+    }
+
     /**
      * Convert a DNS name into a string suitable for use as a cache key.
      *
@@ -83,7 +91,7 @@ public class Util {
             prefix = prefix + ".";
         }
 
-        List<ConfigEntry> res = new ArrayList<ConfigEntry>();
+        List<ConfigEntry> res = new ArrayList<>();
 
         for (Map.Entry<Object, Object> entry : config.entrySet()) {
             String key = (String) entry.getKey();

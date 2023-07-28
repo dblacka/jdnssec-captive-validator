@@ -21,24 +21,42 @@
  *                                                                         *
 \***************************************************************************/
 
-package com.verisign.tat.dnssec;
-
-import org.apache.log4j.Logger;
-
-import org.xbill.DNS.*;
-import org.xbill.DNS.utils.base64;
+package com.verisign.dnssec.security;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-import java.util.*;
+import org.xbill.DNS.CNAMERecord;
+import org.xbill.DNS.DNAMERecord;
+import org.xbill.DNS.Master;
+import org.xbill.DNS.Message;
+import org.xbill.DNS.NSEC3Record;
+import org.xbill.DNS.NSECRecord;
+import org.xbill.DNS.Name;
+import org.xbill.DNS.NameTooLongException;
+import org.xbill.DNS.RRSIGRecord;
+import org.xbill.DNS.RRset;
+import org.xbill.DNS.Rcode;
+import org.xbill.DNS.Record;
+import org.xbill.DNS.Section;
+import org.xbill.DNS.TextParseException;
+import org.xbill.DNS.Type;
+import org.xbill.DNS.utils.base64;
 
 /**
- * This resolver module implements a "captive" DNSSEC validator. The
- * captive validator does not have direct access to the Internet and
- * DNS system -- instead it attempts to validate DNS messages using
- * only configured context.  This is useful for determining if
- * responses coming from a given authoritative server will validate
- * independent of the normal chain of trust.
+ * This resolver module implements a "captive" DNSSEC validator. The captive
+ * validator does not have direct access to the Internet and DNS system --
+ * instead it attempts to validate DNS messages using only configured context.
+ * This is useful for determining if responses coming from a given authoritative
+ * server will validate independent of the normal chain of trust.
  */
 public class CaptiveValidator {
     // A data structure holding all all of our trusted keys.
@@ -49,45 +67,45 @@ public class CaptiveValidator {
 
     // The local verification utility.
     private DnsSecVerifier mVerifier;
-    private Logger log = Logger.getLogger(this.getClass());
+    private Logger log = Logger.getLogger(this.getClass().getName());
 
     // The list of validation errors found.
     private List<String> mErrorList;
 
     public CaptiveValidator() {
-        mVerifier    = new DnsSecVerifier();
-        mValUtils    = new ValUtils(mVerifier);
+        mVerifier = new DnsSecVerifier();
+        mValUtils = new ValUtils(mVerifier);
         mTrustedKeys = new TrustAnchorStore();
-        mErrorList   = new ArrayList<String>();
+        mErrorList = new ArrayList<>();
     }
 
     // ---------------- Module Initialization -------------------
 
     /**
-     * Add a set of trusted keys from a file. The file should be in
-     * DNS master zone file format. Only DNSKEY records will be added.
+     * Add a set of trusted keys from a file. The file should be in DNS master
+     * zone file format. Only DNSKEY records will be added.
      *
      * @param filename
-     *            The file contains the trusted keys.
+     *                     The file contains the trusted keys.
      * @throws IOException
      */
-    @SuppressWarnings("unchecked")
     public void addTrustedKeysFromFile(String filename) throws IOException {
+        ArrayList<Record> records = new ArrayList<>();
+
         // First read in the whole trust anchor file.
-        Master            master  = new Master(filename, Name.root, 0);
-        ArrayList<Record> records = new ArrayList<Record>();
-        Record            r       = null;
+        try (Master master = new Master(filename, Name.root, 0)) {
+            Record r = null;
 
-        while ((r = master.nextRecord()) != null) {
-            records.add(r);
+            while ((r = master.nextRecord()) != null) {
+                records.add(r);
+            }
         }
-
         // Record.compareTo() should sort them into DNSSEC canonical
-        // order.  Don't care about canonical order per se, but do
+        // order. Don't care about canonical order per se, but do
         // want them to be formable into RRsets.
         Collections.sort(records);
 
-        SRRset cur_rrset = new SRRset();
+        SRRset curRRset = new SRRset();
 
         for (Record rec : records) {
             // Skip RR types that cannot be used as trusted
@@ -97,39 +115,37 @@ public class CaptiveValidator {
             }
 
             // If our cur_rrset is empty, we can just add it.
-            if (cur_rrset.size() == 0) {
-                cur_rrset.addRR(rec);
+            if (curRRset.size() == 0) {
+                curRRset.addRR(rec);
 
                 continue;
             }
 
             // If this record matches our current RRset, we can just
             // add it.
-            if (cur_rrset.getName().equals(rec.getName()) &&
-                (cur_rrset.getType() == rec.getType()) && (cur_rrset.getDClass() == rec.getDClass())) {
-
-                cur_rrset.addRR(rec);
+            if (curRRset.equals(rec)) {
+                curRRset.addRR(rec);
                 continue;
             }
 
             // Otherwise, we add the rrset to our set of trust anchors.
-            mTrustedKeys.store(cur_rrset);
-            cur_rrset = new SRRset();
-            cur_rrset.addRR(rec);
+            mTrustedKeys.store(curRRset);
+            curRRset = new SRRset();
+            curRRset.addRR(rec);
         }
 
         // add the last rrset (if it was not empty)
-        if (cur_rrset.size() > 0) {
-            mTrustedKeys.store(cur_rrset);
+        if (curRRset.size() > 0) {
+            mTrustedKeys.store(curRRset);
         }
     }
 
     public void addTrustedKeysFromResponse(Message m) {
-        RRset[] rrsets = m.getSectionRRsets(Section.ANSWER);
+        List<RRset> rrsets = m.getSectionRRsets(Section.ANSWER);
 
-        for (int i = 0; i < rrsets.length; ++i) {
-            if (rrsets[i].getType() == Type.DNSKEY) {
-                SRRset srrset = new SRRset(rrsets[i]);
+        for (RRset rrs : rrsets) {
+            if (rrs.getType() == Type.DNSKEY) {
+                SRRset srrset = new SRRset(rrs);
                 mTrustedKeys.store(srrset);
             }
         }
@@ -138,9 +154,9 @@ public class CaptiveValidator {
     // ----------------- Validation Support ----------------------
 
     /**
-     * This routine normalizes a response. This includes removing
-     * "irrelevant" records from the answer and additional sections
-     * and (re)synthesizing CNAMEs from DNAMEs, if present.
+     * This routine normalizes a response. This includes removing "irrelevant"
+     * records from the answer and additional sections and (re)synthesizing
+     * CNAMEs from DNAMEs, if present.
      *
      * @param response
      */
@@ -149,31 +165,32 @@ public class CaptiveValidator {
             return m;
         }
 
-        if ((m.getRcode() != Rcode.NOERROR) && (m.getRcode() != Rcode.NXDOMAIN)) {
+        if ((m.getRcode() != Rcode.NOERROR)
+                && (m.getRcode() != Rcode.NXDOMAIN)) {
             return m;
         }
 
         Name qname = m.getQuestion().getName();
-        int  qtype = m.getQuestion().getType();
+        int qtype = m.getQuestion().getType();
 
         Name sname = qname;
 
         // For the ANSWER section, remove all "irrelevant" records and add
         // synthesized CNAMEs from DNAMEs
         // This will strip out-of-order CNAMEs as well.
-        List<SRRset> rrset_list = m.getSectionList(Section.ANSWER);
-        Set<Name> additional_names = new HashSet<Name>();
+        List<SRRset> rrsetList = m.getSectionList(Section.ANSWER);
+        Set<Name> additionalNames = new HashSet<>();
 
-        for (ListIterator<SRRset> i = rrset_list.listIterator(); i.hasNext();) {
+        for (ListIterator<SRRset> i = rrsetList.listIterator(); i.hasNext();) {
             SRRset rrset = i.next();
-            int    type  = rrset.getType();
-            Name   n     = rrset.getName();
+            int type = rrset.getType();
+            Name n = rrset.getName();
 
             // Handle DNAME synthesis; DNAME synthesis does not occur
             // at the DNAME name itself.
             if ((type == Type.DNAME) && ValUtils.strictSubdomain(sname, n)) {
                 if (rrset.size() > 1) {
-                    log.debug("Found DNAME rrset with size > 1: " + rrset);
+                    log.fine("Found DNAME rrset with size > 1: " + rrset);
                     m.setStatus(SecurityStatus.INVALID);
 
                     return m;
@@ -182,18 +199,18 @@ public class CaptiveValidator {
                 DNAMERecord dname = (DNAMERecord) rrset.first();
 
                 try {
-                    Name cname_alias = sname.fromDNAME(dname);
+                    Name cnameAlias = sname.fromDNAME(dname);
 
                     // Note that synthesized CNAMEs should have a TTL of zero.
-                    CNAMERecord cname = new CNAMERecord(sname, dname.getDClass(), 0, cname_alias);
-                    SRRset cname_rrset = new SRRset();
-                    cname_rrset.addRR(cname);
-                    i.add(cname_rrset);
+                    CNAMERecord cname = new CNAMERecord(sname, dname.getDClass(), 0, cnameAlias);
+                    SRRset cnameRRset = new SRRset();
+                    cnameRRset.addRR(cname);
+                    i.add(cnameRRset);
 
-                    sname = cname_alias;
+                    sname = cnameAlias;
                 } catch (NameTooLongException e) {
-                    log.debug("not adding synthesized CNAME -- " +
-                              "generated name is too long", e);
+                    log.fine("not adding synthesized CNAME -- "
+                            + "generated name is too long: " + e.toString());
                 }
 
                 continue;
@@ -201,7 +218,7 @@ public class CaptiveValidator {
 
             // The only records in the ANSWER section not allowed to
             if (!n.equals(sname)) {
-                log.debug("normalize: removing irrelevant rrset: " + rrset);
+                log.fine("normalize: removing irrelevant rrset: " + rrset);
                 i.remove();
 
                 continue;
@@ -217,39 +234,39 @@ public class CaptiveValidator {
                 }
 
                 CNAMERecord cname = (CNAMERecord) rrset.first();
-                sname = cname.getAlias();
+                sname = cname.getTarget();
 
                 continue;
             }
 
             // Otherwise, make sure that the RRset matches the qtype.
             if ((qtype != Type.ANY) && (qtype != type)) {
-                log.debug("normalize: removing irrelevant rrset: " + rrset);
+                log.fine("normalize: removing irrelevant rrset: " + rrset);
                 i.remove();
             }
 
             // Otherwise, fetch the additional names from the relevant rrset.
-            rrsetAdditionalNames(additional_names, rrset);
+            rrsetAdditionalNames(additionalNames, rrset);
         }
 
         // Get additional names from AUTHORITY
-        rrset_list = m.getSectionList(Section.AUTHORITY);
+        rrsetList = m.getSectionList(Section.AUTHORITY);
 
-        for (SRRset rrset : rrset_list) {
-            rrsetAdditionalNames(additional_names, rrset);
+        for (SRRset rrset : rrsetList) {
+            rrsetAdditionalNames(additionalNames, rrset);
         }
 
         // For each record in the additional section, remove it if it is an
         // address record and not in the collection of additional names found in
         // ANSWER and AUTHORITY.
-        rrset_list = m.getSectionList(Section.ADDITIONAL);
+        rrsetList = m.getSectionList(Section.ADDITIONAL);
 
-        for (Iterator<SRRset> i = rrset_list.iterator(); i.hasNext();) {
+        for (Iterator<SRRset> i = rrsetList.iterator(); i.hasNext();) {
             SRRset rrset = i.next();
-            int    type  = rrset.getType();
+            int type = rrset.getType();
 
-            if (((type == Type.A) || (type == Type.AAAA)) &&
-                !additional_names.contains(rrset.getName())) {
+            if (((type == Type.A) || (type == Type.AAAA))
+                    && !additionalNames.contains(rrset.getName())) {
 
                 i.remove();
             }
@@ -261,22 +278,22 @@ public class CaptiveValidator {
     /**
      * Extract additional names from the records in an rrset.
      *
-     * @param additional_names
-     *            The set to add the additional names to, if any.
+     * @param additionalNames
+     *                            The set to add the additional names to, if
+     *                            any.
      * @param rrset
-     *            The rrset to extract from.
+     *                            The rrset to extract from.
      */
-    private void rrsetAdditionalNames(Set<Name> additional_names, SRRset rrset) {
+    private void rrsetAdditionalNames(Set<Name> additionalNames, SRRset rrset) {
         if (rrset == null) {
             return;
         }
 
-        for (Iterator<Record> i = rrset.rrs(); i.hasNext();) {
-            Record r        = i.next();
-            Name   add_name = r.getAdditionalName();
+        for (Record r : rrset.rrs()) {
+            Name addName = r.getAdditionalName();
 
-            if (add_name != null) {
-                additional_names.add(add_name);
+            if (addName != null) {
+                additionalNames.add(addName);
             }
         }
     }
@@ -289,16 +306,16 @@ public class CaptiveValidator {
     }
 
     /**
-     * Check to see if a given response needs to go through the
-     * validation process. Typical reasons for this routine to return
-     * false are: CD bit was on in the original request, the response
-     * was already validated, or the response is a kind of message
-     * that is unvalidatable (i.e., SERVFAIL, REFUSED, etc.)
+     * Check to see if a given response needs to go through the validation
+     * process. Typical reasons for this routine to return false are: CD bit was
+     * on in the original request, the response was already validated, or the
+     * response is a kind of message that is unvalidatable (i.e., SERVFAIL,
+     * REFUSED, etc.)
      *
      * @param message
-     *            The message to check.
+     *                        The message to check.
      * @param origRequest
-     *            The original request received from the client.
+     *                        The original request received from the client.
      *
      * @return true if the response could use validation (although this does not
      *         mean we can actually validate this response).
@@ -307,50 +324,45 @@ public class CaptiveValidator {
         int rcode = message.getRcode();
 
         if ((rcode != Rcode.NOERROR) && (rcode != Rcode.NXDOMAIN)) {
-            log.debug("cannot validate non-answer.");
-            log.trace("non-answer: " + message);
+            log.fine("cannot validate non-answer.");
+            log.finest("non-answer: " + message);
 
             return false;
         }
 
-        if (!mTrustedKeys.isBelowTrustAnchor(message.getQName(), message.getQClass())) {
-            return false;
-        }
-
-        return true;
+        return mTrustedKeys.isBelowTrustAnchor(message.getQName(), message.getQClass());
     }
 
     /**
-     * Given a "positive" response -- a response that contains an
-     * answer to the question, and no CNAME chain, validate this
-     * response. This generally consists of verifying the answer RRset
-     * and the authority RRsets.
+     * Given a "positive" response -- a response that contains an answer to the
+     * question, and no CNAME chain, validate this response. This generally
+     * consists of verifying the answer RRset and the authority RRsets.
      *
-     * Note that by the time this method is called, the process of
-     * finding the trusted DNSKEY rrset that signs this response must
-     * already have been completed.
+     * Note that by the time this method is called, the process of finding the
+     * trusted DNSKEY rrset that signs this response must already have been
+     * completed.
      *
      * @param response
-     *            The response to validate.
+     *                      The response to validate.
      * @param request
-     *            The request that generated this response.
-     * @param key_rrset
-     *            The trusted DNSKEY rrset that matches the signer of the
-     *            answer.
+     *                      The request that generated this response.
+     * @param keyRRset
+     *                      The trusted DNSKEY rrset that matches the signer of
+     *                      the answer.
      */
-    private void validatePositiveResponse(SMessage message, SRRset key_rrset) {
+    private void validatePositiveResponse(SMessage message, SRRset keyRRset) {
         Name qname = message.getQName();
-        int  qtype = message.getQType();
+        int qtype = message.getQType();
 
         SMessage m = message;
 
         // validate the ANSWER section - this will be the answer itself
         SRRset[] rrsets = m.getSectionRRsets(Section.ANSWER);
 
-        Name              wc        = null;
-        boolean           wcNSEC_ok = false;
-        boolean           dname     = false;
-        List<NSEC3Record> nsec3s    = null;
+        Name wc = null;
+        boolean wcNSEC_ok = false;
+        boolean dname = false;
+        List<NSEC3Record> nsec3s = null;
 
         for (int i = 0; i < rrsets.length; i++) {
             // Skip the CNAME following a (validated) DNAME.
@@ -363,13 +375,13 @@ public class CaptiveValidator {
             }
 
             // Verify the answer rrset.
-            int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+            int status = mValUtils.verifySRRset(rrsets[i], keyRRset);
 
             // If the (answer) rrset failed to validate, then this
             // message is bogus.
             if (status != SecurityStatus.SECURE) {
-                mErrorList.add("Positive response has failed ANSWER rrset: " +
-                               rrsets[i]);
+                mErrorList.add("Positive response has failed ANSWER rrset: "
+                        + rrsets[i]);
                 m.setStatus(SecurityStatus.BOGUS);
 
                 return;
@@ -392,13 +404,13 @@ public class CaptiveValidator {
         rrsets = m.getSectionRRsets(Section.AUTHORITY);
 
         for (int i = 0; i < rrsets.length; i++) {
-            int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+            int status = mValUtils.verifySRRset(rrsets[i], keyRRset);
 
             // If anything in the authority section fails to be
             // secure, we have a bad message.
             if (status != SecurityStatus.SECURE) {
-                mErrorList.add("Positive response has failed AUTHORITY rrset: " +
-                               rrsets[i]);
+                mErrorList.add("Positive response has failed AUTHORITY rrset: "
+                        + rrsets[i]);
                 m.setStatus(SecurityStatus.BOGUS);
 
                 return;
@@ -411,7 +423,7 @@ public class CaptiveValidator {
             if ((wc != null) && (rrsets[i].getType() == Type.NSEC)) {
                 NSECRecord nsec = (NSECRecord) rrsets[i].first();
 
-                if (ValUtils.nsecProvesNameError(nsec, qname, key_rrset.getName())) {
+                if (ValUtils.nsecProvesNameError(nsec, qname, keyRRset.getName())) {
                     Name nsec_wc = ValUtils.nsecWildcard(qname, nsec);
 
                     if (!wc.equals(nsec_wc)) {
@@ -429,7 +441,7 @@ public class CaptiveValidator {
             // NSEC3 records, collect them.
             if ((wc != null) && (rrsets[i].getType() == Type.NSEC3)) {
                 if (nsec3s == null) {
-                    nsec3s = new ArrayList<NSEC3Record>();
+                    nsec3s = new ArrayList<>();
                 }
 
                 nsec3s.add((NSEC3Record) rrsets[i].first());
@@ -439,36 +451,32 @@ public class CaptiveValidator {
         // If this was a positive wildcard response that we haven't
         // already proven, and we have NSEC3 records, try to prove it
         // using the NSEC3 records.
-        if ((wc != null) && !wcNSEC_ok && (nsec3s != null)) {
-            if (NSEC3ValUtils.proveWildcard(nsec3s, qname, key_rrset.getName(),
-                                            wc, mErrorList)) {
-                wcNSEC_ok = true;
-            }
+        if ((wc != null) && !wcNSEC_ok && nsec3s != null
+                && NSEC3ValUtils.proveWildcard(nsec3s, qname, keyRRset.getName(), mErrorList)) {
+            wcNSEC_ok = true;
         }
 
         // If after all this, we still haven't proven the positive
         // wildcard response, fail.
         if ((wc != null) && !wcNSEC_ok) {
-            // log.debug("positive response was wildcard expansion and " +
-            //           "did not prove original data did not exist");
             m.setStatus(SecurityStatus.BOGUS);
 
             return;
         }
 
-        log.trace("Successfully validated positive response");
+        log.finest("Successfully validated positive response");
         m.setStatus(SecurityStatus.SECURE);
     }
 
-    /** Given a "referral" type response (RCODE=NOERROR, ANSWER=0,
-     * AUTH=NS records under the zone we thought we were talking to,
-     * etc.), validate it.  This consists of validating the DS or
-     * NSEC/NSEC3 RRsets and noting that the response does indeed look
-     * like a referral.
+    /**
+     * Given a "referral" type response (RCODE=NOERROR, ANSWER=0, AUTH=NS
+     * records under the zone we thought we were talking to, etc.), validate it.
+     * This consists of validating the DS or NSEC/NSEC3 RRsets and noting that
+     * the response does indeed look like a referral.
      *
      *
      */
-    private void validateReferral(SMessage message, SRRset key_rrset) {
+    private void validateReferral(SMessage message, SRRset keyRRset) {
         SMessage m = message;
 
         if (m.getCount(Section.ANSWER) > 0) {
@@ -478,34 +486,32 @@ public class CaptiveValidator {
         }
 
         // validate the AUTHORITY section.
-        SRRset[] rrsets = m.getSectionRRsets(Section.AUTHORITY);
-
-        boolean           secure_delegation = false;
-        Name              delegation        = null;
-        Name              nsec3zone         = null;
-        NSECRecord        nsec              = null;
-        List<NSEC3Record> nsec3s            = null;
+        boolean secureDelegation = false;
+        Name delegation = null;
+        Name nsec3zone = null;
+        NSECRecord nsec = null;
+        List<NSEC3Record> nsec3s = null;
 
         // validate the AUTHORITY section as well - this will generally be the
         // NS rrset, plus proof of a secure delegation or not
-        rrsets = m.getSectionRRsets(Section.AUTHORITY);
+        SRRset[] rrsets = m.getSectionRRsets(Section.AUTHORITY);
 
         for (int i = 0; i < rrsets.length; i++) {
             int type = rrsets[i].getType();
 
             // The NS RRset won't be signed, but everything else
-            // should be.  If we have an unexpected type here
+            // should be. If we have an unexpected type here
             // with a bad signature, we will fail when we otherwise
-            // might just have warned about the odd record.  Consider
+            // might just have warned about the odd record. Consider
             // checking the types first, then validating.
             if (type != Type.NS) {
-                int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+                int status = mValUtils.verifySRRset(rrsets[i], keyRRset);
 
                 // If anything in the authority section fails to be
                 // secure, we have a bad message.
                 if (status != SecurityStatus.SECURE) {
-                    mErrorList.add("Referral response has failed AUTHORITY rrset: " +
-                             rrsets[i]);
+                    mErrorList.add("Referral response has failed AUTHORITY rrset: "
+                            + rrsets[i]);
                     m.setStatus(SecurityStatus.BOGUS);
 
                     return;
@@ -514,7 +520,7 @@ public class CaptiveValidator {
 
             switch (type) {
             case Type.DS:
-                secure_delegation = true;
+                secureDelegation = true;
                 break;
 
             case Type.NS:
@@ -527,7 +533,7 @@ public class CaptiveValidator {
 
             case Type.NSEC3:
                 if (nsec3s == null) {
-                    nsec3s = new ArrayList<NSEC3Record>();
+                    nsec3s = new ArrayList<>();
                 }
 
                 NSEC3Record nsec3 = (NSEC3Record) rrsets[i].first();
@@ -538,7 +544,7 @@ public class CaptiveValidator {
                 break;
 
             default:
-                log.warn("Encountered unexpected type in a REFERRAL response: "
+                log.warning("Encountered unexpected type in a REFERRAL response: "
                         + Type.string(type));
 
                 break;
@@ -556,8 +562,8 @@ public class CaptiveValidator {
             return;
         }
 
-        if (secure_delegation) {
-            if ((nsec != null) || ((nsec3s != null) && (nsec3s.size() > 0))) {
+        if (secureDelegation) {
+            if ((nsec != null) || ((nsec3s != null) && (!nsec3s.isEmpty()))) {
                 // we found both a DS rrset *and* NSEC/NSEC3 rrsets!
                 mErrorList.add("Referral contains both DS and NSEC/NSEC3 RRsets");
                 m.setStatus(SecurityStatus.BOGUS);
@@ -573,7 +579,7 @@ public class CaptiveValidator {
 
         // Note: not going to care if both NSEC and NSEC3 rrsets were present.
         if (nsec != null) {
-            byte status = ValUtils.nsecProvesNoDS(nsec, delegation);
+            byte status = ValUtils.nsecProvesNoDS(nsec);
 
             if (status != SecurityStatus.SECURE) {
                 // The NSEC *must* prove that there was no DS
@@ -589,7 +595,7 @@ public class CaptiveValidator {
             return;
         }
 
-        if (nsec3s != null && nsec3s.size() > 0) {
+        if (nsec3s != null && !nsec3s.isEmpty()) {
             byte status = NSEC3ValUtils.proveNoDS(nsec3s, delegation, nsec3zone, mErrorList);
 
             if (status != SecurityStatus.SECURE) {
@@ -612,7 +618,7 @@ public class CaptiveValidator {
     }
 
     // When processing CNAME responses, if we have wildcard-generated CNAMEs we
-    // have to keep track of several bits of information per-cname.  This small
+    // have to keep track of several bits of information per-cname. This small
     // inner class is for that.
     class CNAMEWildcardEntry {
         public Name owner;
@@ -620,16 +626,16 @@ public class CaptiveValidator {
         public Name signer;
 
         public CNAMEWildcardEntry(Name owner, Name wildcard, Name signer) {
-            this.owner    = owner;
+            this.owner = owner;
             this.wildcard = wildcard;
-            this.signer   = signer;
+            this.signer = signer;
         }
     }
 
     // When processing CNAME responses, our final step is check the end of the
     // chain if we ended up in zone. To that end, we generate a temporary
     // message that removes the CNAME/DNAME chain.
-    private SMessage messageFromCNAME(SMessage source, Name sname, Name zone) {
+    private SMessage messageFromCNAME(SMessage source, Name sname) {
 
         SMessage m = new SMessage();
         m.setHeader(source.getHeader());
@@ -663,11 +669,11 @@ public class CaptiveValidator {
 
     /**
      * Given a "CNAME" response (i.e., a response that contains at least one
-     * CNAME, and qtype != CNAME).  This largely consists of validating each
-     * CNAME RRset until the CNAME chain goes "out of zone".  Note that
+     * CNAME, and qtype != CNAME). This largely consists of validating each
+     * CNAME RRset until the CNAME chain goes "out of zone". Note that
      * out-of-order CNAME chains will have been cleaned up via normalize(). When
      * traversing the CNAME chain, we detect if the CNAMEs were generated from a
-     * wildcard, and we detect when the chain goes "out-of-zone".  For each
+     * wildcard, and we detect when the chain goes "out-of-zone". For each
      * in-zone wildcard generated CNAME, we check for a proof that the alias
      * (the owner of each cname) doesn't exist.
      *
@@ -683,42 +689,43 @@ public class CaptiveValidator {
      * trusted DNSKEY rrset that signs this response must already have been
      * completed.
      */
-    private void validateCNAMEResponse(SMessage message, SRRset key_rrset)
-    {
+    private void validateCNAMEResponse(SMessage message, SRRset keyRRset) {
         Name qname = message.getQName();
 
-        Name                     sname     = qname;  // this is the "current" name in the chain
-        boolean                  dname     = false;  // a flag indicating that prev iteration was a dname
-        boolean                  inZone    = true;   // a flag telling us if we ended up in zone.
-        List<CNAMEWildcardEntry> wildcards = 
-            new ArrayList<CNAMEWildcardEntry>();     // The CNAMEs that were generated with wildcards.
-        Name zone = key_rrset.getName();
+        Name sname = qname; // this is the "current" name in the chain
+        boolean dname = false; // a flag indicating that prev iteration was a
+                               // dname
+        boolean inZone = true; // a flag telling us if we ended up in zone.
+        // The CNAMEs that were generated with wildcards.
+        List<CNAMEWildcardEntry> wildcards = new ArrayList<>();
+
+        Name zone = keyRRset.getName();
 
         SRRset[] rrsets = message.getSectionRRsets(Section.ANSWER);
 
         // Validate the ANSWER section RRsets.
         for (int i = 0; i < rrsets.length; i++) {
 
-            int  rtype = rrsets[i].getType();
+            int rtype = rrsets[i].getType();
             Name rname = rrsets[i].getName();
 
             // Follow the CNAME chain
             if (rtype == Type.CNAME) {
-                // If we've gotten off track...  Note: this should be
+                // If we've gotten off track... Note: this should be
                 // impossible with normalization in effect.
 
                 if (!sname.equals(rname)) {
-                    mErrorList.add("CNAME chain is broken: expected owner name of " +
-                                   sname + " got: " + rname);
+                    mErrorList.add("CNAME chain is broken: expected owner name of "
+                            + sname + " got: " + rname);
                     message.setStatus(SecurityStatus.BOGUS);
                     return;
                 }
 
-                sname = ((CNAMERecord) rrsets[i].first()).getAlias();
+                sname = ((CNAMERecord) rrsets[i].first()).getTarget();
 
-                // Check to see if the CNAME was generated by a wildcard.  We
+                // Check to see if the CNAME was generated by a wildcard. We
                 // store the generated name instead of the wildcard value, as we
-                // need to prove that the wildcard wasn't blocked.  For now, we
+                // need to prove that the wildcard wasn't blocked. For now, we
                 // only want to do that for "in zone" wildcard CNAMEs
                 Name wc = ValUtils.rrsetWildcard(rrsets[i]);
                 if (wc != null && inZone) {
@@ -732,11 +739,12 @@ public class CaptiveValidator {
                 dname = true;
                 Name wc = ValUtils.rrsetWildcard(rrsets[i]);
                 if (wc != null) {
-                    mErrorList.add("Illegal wildcard DNAME found: " + rrsets[i]);
+                    mErrorList.add("Illegal wildcard DNAME found: "
+                            + rrsets[i]);
                 }
             }
 
-            // Skip validation of CNAMEs following DNAMEs.  The
+            // Skip validation of CNAMEs following DNAMEs. The
             // normalization step will have synthesized an unsigned
             // CNAME RRset.
             if (dname && rtype == Type.CNAME) {
@@ -744,11 +752,11 @@ public class CaptiveValidator {
                 continue;
             }
 
-            int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+            int status = mValUtils.verifySRRset(rrsets[i], keyRRset);
 
             if (status != SecurityStatus.SECURE) {
-                mErrorList.add("CNAME response has a failed ANSWER rrset: " +
-                               rrsets[i]);
+                mErrorList.add("CNAME response has a failed ANSWER rrset: "
+                        + rrsets[i]);
                 message.setStatus(SecurityStatus.BOGUS);
 
                 return;
@@ -756,39 +764,39 @@ public class CaptiveValidator {
 
             // Once we've gone off the reservation, avoid further
             // validation.
-            if (! sname.subdomain(zone)) {
+            if (!sname.subdomain(zone)) {
                 inZone = false;
                 break;
             }
         }
 
-        log.trace("processed CNAME chain and ended with: " +
-                sname + "; inZone = " + inZone);
+        log.finest("processed CNAME chain and ended with: " + sname
+                + "; inZone = " + inZone);
 
         // Keep track of NSEC and NSEC3 records we find in the auth section
         // Only add verified records, though.
-        List<NSECRecord>  nsecs  = new ArrayList<NSECRecord>();
-        List<NSEC3Record> nsec3s = new ArrayList<NSEC3Record>();
+        List<NSECRecord> nsecs = new ArrayList<>();
+        List<NSEC3Record> nsec3s = new ArrayList<>();
 
         // Validate the AUTHORITY section.
         rrsets = message.getSectionRRsets(Section.ANSWER);
         for (int i = 0; i < rrsets.length; i++) {
             Name rname = rrsets[i].getName();
-            int  rtype = rrsets[i].getType();
+            int rtype = rrsets[i].getType();
 
-            if (! rname.subdomain(zone)) {
+            if (!rname.subdomain(zone)) {
                 // Skip auth records that are not in our zone
                 // This is a current limitation of this method
                 continue;
             }
 
-            int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+            int status = mValUtils.verifySRRset(rrsets[i], keyRRset);
 
             // If anything in the authority section fails to be
             // secure, we have a bad message.
             if (status != SecurityStatus.SECURE) {
-                mErrorList.add("Positive response has failed AUTHORITY rrset: " +
-                               rrsets[i]);
+                mErrorList.add("Positive response has failed AUTHORITY rrset: "
+                        + rrsets[i]);
                 message.setStatus(SecurityStatus.BOGUS);
 
                 return;
@@ -797,32 +805,33 @@ public class CaptiveValidator {
             // otherwise, collect the validated NSEC and NSEC3 RRs, if any
             if (rtype == Type.NSEC) {
                 nsecs.add((NSECRecord) rrsets[i].first());
-            }
-            else if (rtype == Type.NSEC3) {
+            } else if (rtype == Type.NSEC3) {
                 nsec3s.add((NSEC3Record) rrsets[i].first());
             }
         }
 
         // Regardless if whether or not we left the reservation, if some of our
         // CNAMEs were generated from wildcards we need to prove that.
-        if (wildcards.size() > 0) {
+        if (!wildcards.isEmpty()) {
 
             for (CNAMEWildcardEntry wcEntry : wildcards) {
                 boolean result = false;
-                if (nsecs.size() > 0) {
+                if (!nsecs.isEmpty()) {
                     for (NSECRecord nsec : nsecs) {
                         result = ValUtils.nsecProvesNameError(nsec, wcEntry.owner, wcEntry.signer);
-                        if (result) break;
+                        if (result)
+                            break;
                     }
-                }
-                else if (nsec3s.size() > 0) {
-                    result = NSEC3ValUtils.proveWildcard(nsec3s, wcEntry.owner, zone, wcEntry.wildcard, mErrorList);
+                } else if (!nsec3s.isEmpty()) {
+                    result = NSEC3ValUtils.proveWildcard(nsec3s, wcEntry.owner, zone, mErrorList);
                 }
 
                 if (!result) {
-                    mErrorList.add("CNAME response has a wildcard-generated CNAME '" +
-                                   wcEntry.owner + "' but does not prove that the wildcard '" +
-                                   wcEntry.wildcard + "' was valid via a covering NSEC or NSEC3 RR");
+                    mErrorList.add("CNAME response has a wildcard-generated CNAME '"
+                            + wcEntry.owner
+                            + "' but does not prove that the wildcard '"
+                            + wcEntry.wildcard
+                            + "' was valid via a covering NSEC or NSEC3 RR");
                     message.setStatus(SecurityStatus.BOGUS);
                     return;
                 }
@@ -830,84 +839,83 @@ public class CaptiveValidator {
         }
 
         // If our CNAME chain took us out of zone, we are done.
-        if (! inZone) {
-            log.trace("Successfully validated CNAME response up to the point where it left our zone.");
+        if (!inZone) {
+            log.finest("Successfully validated CNAME response up to the point where it left our zone.");
             message.setStatus(SecurityStatus.SECURE);
             return;
         }
 
         // Otherwise, we need to do some additional proofs
-        SMessage tailMessage = messageFromCNAME(message, sname, zone);
+        SMessage tailMessage = messageFromCNAME(message, sname);
         ValUtils.ResponseType tailType = ValUtils.classifyResponse(tailMessage, zone);
         switch (tailType) {
-            case POSITIVE:
-            log.trace("Validating the rest of the CNAME response as a positive response");
-            validatePositiveResponse(tailMessage, key_rrset);
+        case POSITIVE:
+            log.finest("Validating the rest of the CNAME response as a positive response");
+            validatePositiveResponse(tailMessage, keyRRset);
             message.setSecurityStatus(tailMessage.getSecurityStatus());
             break;
 
         case REFERRAL:
-            log.trace("Validating the rest of the CNAME response as a referral");
-            validateReferral(tailMessage, key_rrset);
+            log.finest("Validating the rest of the CNAME response as a referral");
+            validateReferral(tailMessage, keyRRset);
             message.setSecurityStatus(tailMessage.getSecurityStatus());
             break;
 
         case NODATA:
-            log.trace("Validating the rest of the CNAME responses as a NODATA response");
-            validateNodataResponse(tailMessage, key_rrset, mErrorList);
+            log.finest("Validating the rest of the CNAME responses as a NODATA response");
+            validateNodataResponse(tailMessage, keyRRset, mErrorList);
             message.setSecurityStatus(tailMessage.getSecurityStatus());
             break;
 
         case NAMEERROR:
-            log.trace("Validating a the rest of the CNAME responses as NXDOMAIN response");
-            validateNameErrorResponse(tailMessage, key_rrset);
+            log.finest("Validating a the rest of the CNAME responses as NXDOMAIN response");
+            validateNameErrorResponse(tailMessage, keyRRset);
             message.setSecurityStatus(tailMessage.getSecurityStatus());
             break;
 
         case CNAME:
-            log.error("Reclassified the tail of a CNAME response as a CNAME");
-            log.error(tailMessage);
+            log.severe("Reclassified the tail of a CNAME response as a CNAME");
+            log.severe(tailMessage.toString());
             message.setStatus(SecurityStatus.BOGUS);
             break;
 
         case ANY:
-            log.error("Reclassified the tail of a CNAME response as an ANY response");
-            log.error(tailMessage);
+            log.severe("Reclassified the tail of a CNAME response as an ANY response");
+            log.severe(tailMessage.toString());
             message.setStatus(SecurityStatus.BOGUS);
             break;
 
         default:
-            log.error("unhandled response subtype: " + tailType);
+            log.severe("unhandled response subtype: " + tailType);
             message.setStatus(SecurityStatus.BOGUS);
             break;
         }
     }
 
     /**
-     * Given an "ANY" response -- a response that contains an answer
-     * to a qtype==ANY question, with answers. This consists of simply
-     * verifying all present answer/auth RRsets, with no checking that
-     * all types are present.
+     * Given an "ANY" response -- a response that contains an answer to a
+     * qtype==ANY question, with answers. This consists of simply verifying all
+     * present answer/auth RRsets, with no checking that all types are present.
      *
-     * NOTE: it may be possible to get parent-side delegation point
-     * records here, which won't all be signed. Right now, this
-     * routine relies on the upstream iterative resolver to not return
-     * these responses -- instead treating them as referrals.
+     * NOTE: it may be possible to get parent-side delegation point records
+     * here, which won't all be signed. Right now, this routine relies on the
+     * upstream iterative resolver to not return these responses -- instead
+     * treating them as referrals.
      *
      * NOTE: RFC 4035 is silent on this issue, so this may change upon
      * clarification.
      *
-     * Note that by the time this method is called, the process of
-     * finding the trusted DNSKEY rrset that signs this response must
-     * already have been completed.
+     * Note that by the time this method is called, the process of finding the
+     * trusted DNSKEY rrset that signs this response must already have been
+     * completed.
      *
      * @param message
-     *            The response to validate.
-     * @param key_rrset
-     *            The trusted DNSKEY rrset that matches the signer of the
-     *            answer.
+     *                      The response to validate.
+     * @param keyRRset
+     *                      The trusted DNSKEY rrset that matches the signer of
+     *                      the answer.
      */
-    private void validateAnyResponse(SMessage message, SRRset key_rrset) {
+    private void validateAnyResponse(SMessage message, SRRset keyRRset) {
         int qtype = message.getQType();
 
         if (qtype != Type.ANY) {
@@ -920,13 +928,13 @@ public class CaptiveValidator {
         SRRset[] rrsets = m.getSectionRRsets(Section.ANSWER);
 
         for (int i = 0; i < rrsets.length; i++) {
-            int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+            int status = mValUtils.verifySRRset(rrsets[i], keyRRset);
 
             // If the (answer) rrset failed to validate, then this message is
             // BAD.
             if (status != SecurityStatus.SECURE) {
-                mErrorList.add("Positive response has failed ANSWER rrset: " +
-                               rrsets[i]);
+                mErrorList.add("Positive response has failed ANSWER rrset: "
+                        + rrsets[i]);
                 m.setStatus(SecurityStatus.BOGUS);
 
                 return;
@@ -938,46 +946,45 @@ public class CaptiveValidator {
         rrsets = m.getSectionRRsets(Section.AUTHORITY);
 
         for (int i = 0; i < rrsets.length; i++) {
-            int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+            int status = mValUtils.verifySRRset(rrsets[i], keyRRset);
 
             // If anything in the authority section fails to be secure, we have
             // a bad message.
             if (status != SecurityStatus.SECURE) {
-                mErrorList.add("Positive response has failed AUTHORITY rrset: " +
-                               rrsets[i]);
+                mErrorList.add("Positive response has failed AUTHORITY rrset: "
+                        + rrsets[i]);
                 m.setStatus(SecurityStatus.BOGUS);
 
                 return;
             }
         }
 
-        log.trace("Successfully validated positive ANY response");
+        log.finest("Successfully validated positive ANY response");
         m.setStatus(SecurityStatus.SECURE);
     }
 
     /**
-     * Validate a NOERROR/NODATA signed response -- a response that
-     * has a NOERROR Rcode but no ANSWER section RRsets. This consists
-     * of verifying the authority section rrsets and making certain
-     * that the authority section NSEC/NSEC3s proves that the qname
-     * does exist and the qtype doesn't.
+     * Validate a NOERROR/NODATA signed response -- a response that has a
+     * NOERROR Rcode but no ANSWER section RRsets. This consists of verifying
+     * the authority section rrsets and making certain that the authority
+     * section NSEC/NSEC3s proves that the qname does exist and the qtype
+     * doesn't.
      *
-     * Note that by the time this method is called, the process of
-     * finding the trusted DNSKEY rrset that signs this response must
-     * already have been completed.
+     * Note that by the time this method is called, the process of finding the
+     * trusted DNSKEY rrset that signs this response must already have been
+     * completed.
      *
      * @param response
-     *            The response to validate.
+     *                      The response to validate.
      * @param request
-     *            The request that generated this response.
-     * @param key_rrset
-     *            The trusted DNSKEY rrset that signs this response.
+     *                      The request that generated this response.
+     * @param keyRRset
+     *                      The trusted DNSKEY rrset that signs this response.
      */
-    private void validateNodataResponse(SMessage     message,
-                                        SRRset       key_rrset,
-                                        List<String> errorList) {
+    private void validateNodataResponse(SMessage message, SRRset keyRRset,
+            List<String> errorList) {
         Name qname = message.getQName();
-        int  qtype = message.getQType();
+        int qtype = message.getQType();
 
         SMessage m = message;
 
@@ -1004,11 +1011,11 @@ public class CaptiveValidator {
         Name nsec3Signer = null;
 
         for (int i = 0; i < rrsets.length; i++) {
-            int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+            int status = mValUtils.verifySRRset(rrsets[i], keyRRset);
 
             if (status != SecurityStatus.SECURE) {
-                mErrorList.add("NODATA response has failed AUTHORITY rrset: " +
-                               rrsets[i]);
+                mErrorList.add("NODATA response has failed AUTHORITY rrset: "
+                        + rrsets[i]);
                 m.setStatus(SecurityStatus.BOGUS);
 
                 return;
@@ -1033,7 +1040,7 @@ public class CaptiveValidator {
             // Collect any NSEC3 records present.
             if (rrsets[i].getType() == Type.NSEC3) {
                 if (nsec3s == null) {
-                    nsec3s = new ArrayList<NSEC3Record>();
+                    nsec3s = new ArrayList<>();
                 }
 
                 nsec3s.add((NSEC3Record) rrsets[i].first());
@@ -1049,63 +1056,61 @@ public class CaptiveValidator {
         // *.closest_encloser.
         if ((ce != null) || (wc != null)) {
             try {
-                Name wc_name = new Name("*", ce);
+                Name wcName = new Name("*", ce);
 
-                if (!wc_name.equals(wc.getName())) {
+                if (!wcName.equals(wc.getName())) {
                     hasValidNSEC = false;
                 }
             } catch (TextParseException e) {
-                log.error(e);
+                log.log(Level.SEVERE, "Error parsing name", e);
             }
         }
 
         NSEC3ValUtils.stripUnknownAlgNSEC3s(nsec3s);
 
-        if (!hasValidNSEC && (nsec3s != null) && (nsec3s.size() > 0)) {
+        if (!hasValidNSEC && (nsec3s != null) && (!nsec3s.isEmpty())) {
             // try to prove NODATA with our NSEC3 record(s)
-            hasValidNSEC = NSEC3ValUtils.proveNodata(nsec3s, qname, qtype,
-                                                     nsec3Signer, errorList);
+            hasValidNSEC = NSEC3ValUtils.proveNodata(nsec3s, qname, qtype, nsec3Signer, errorList);
         }
 
         if (!hasValidNSEC) {
-            log.debug("NODATA response failed to prove NODATA " +
-                      "status with NSEC/NSEC3");
-            log.trace("Failed NODATA:\n" + m);
+            log.fine("NODATA response failed to prove NODATA "
+                    + "status with NSEC/NSEC3");
+            log.fine("Failed NODATA:\n" + m);
             mErrorList.add("NODATA response failed to prove NODATA status with NSEC/NSEC3");
             m.setStatus(SecurityStatus.BOGUS);
 
             return;
         }
 
-        log.trace("successfully validated NODATA response.");
+        log.finest("successfully validated NODATA response.");
         m.setStatus(SecurityStatus.SECURE);
     }
 
     /**
-     * Validate a NAMEERROR signed response -- a response that has a
-     * NXDOMAIN Rcode. This consists of verifying the authority
-     * section rrsets and making certain that the authority section
-     * NSEC proves that the qname doesn't exist and the covering
-     * wildcard also doesn't exist..
+     * Validate a NAMEERROR signed response -- a response that has a NXDOMAIN
+     * Rcode. This consists of verifying the authority section rrsets and making
+     * certain that the authority section NSEC proves that the qname doesn't
+     * exist and the covering wildcard also doesn't exist..
      *
-     * Note that by the time this method is called, the process of
-     * finding the trusted DNSKEY rrset that signs this response must
-     * already have been completed.
+     * Note that by the time this method is called, the process of finding the
+     * trusted DNSKEY rrset that signs this response must already have been
+     * completed.
      *
      * @param response
-     *            The response to validate.
+     *                      The response to validate.
      * @param request
-     *            The request that generated this response.
-     * @param key_rrset
-     *            The trusted DNSKEY rrset that signs this response.
+     *                      The request that generated this response.
+     * @param keyRRset
+     *                      The trusted DNSKEY rrset that signs this response.
      */
-    private void validateNameErrorResponse(SMessage message, SRRset key_rrset) {
+    private void validateNameErrorResponse(SMessage message, SRRset keyRRset) {
         Name qname = message.getQName();
 
         SMessage m = message;
 
         if (message.getCount(Section.ANSWER) > 0) {
-            log.warn("NameError response contained records in the ANSWER SECTION");
+            log.warning("NameError response contained records in the ANSWER SECTION");
             mErrorList.add("NameError response contained records in the ANSWER SECTION");
             message.setStatus(SecurityStatus.INVALID);
 
@@ -1115,18 +1120,18 @@ public class CaptiveValidator {
         // Validate the authority section -- all RRsets in the authority section
         // must be signed and valid.
         // In addition, the NSEC record(s) must prove the NXDOMAIN condition.
-        boolean           hasValidNSEC   = false;
-        boolean           hasValidWCNSEC = false;
-        SRRset[]          rrsets         = m.getSectionRRsets(Section.AUTHORITY);
-        List<NSEC3Record> nsec3s         = null;
-        Name              nsec3Signer    = null;
+        boolean hasValidNSEC = false;
+        boolean hasValidWCNSEC = false;
+        SRRset[] rrsets = m.getSectionRRsets(Section.AUTHORITY);
+        List<NSEC3Record> nsec3s = null;
+        Name nsec3Signer = null;
 
         for (int i = 0; i < rrsets.length; i++) {
-            int status = mValUtils.verifySRRset(rrsets[i], key_rrset);
+            int status = mValUtils.verifySRRset(rrsets[i], keyRRset);
 
             if (status != SecurityStatus.SECURE) {
-                mErrorList.add("NameError response has failed AUTHORITY rrset: " +
-                               rrsets[i]);
+                mErrorList.add("NameError response has failed AUTHORITY rrset: "
+                        + rrsets[i]);
                 m.setStatus(SecurityStatus.BOGUS);
 
                 return;
@@ -1146,7 +1151,7 @@ public class CaptiveValidator {
 
             if (rrsets[i].getType() == Type.NSEC3) {
                 if (nsec3s == null) {
-                    nsec3s = new ArrayList<NSEC3Record>();
+                    nsec3s = new ArrayList<>();
                 }
 
                 nsec3s.add((NSEC3Record) rrsets[i].first());
@@ -1156,12 +1161,12 @@ public class CaptiveValidator {
 
         NSEC3ValUtils.stripUnknownAlgNSEC3s(nsec3s);
 
-        if ((nsec3s != null) && (nsec3s.size() > 0)) {
-            log.debug("Validating nxdomain: using NSEC3 records");
+        if ((nsec3s != null) && (!nsec3s.isEmpty())) {
+            log.fine("Validating nxdomain: using NSEC3 records");
 
             // Attempt to prove name error with nsec3 records.
-            if (NSEC3ValUtils.allNSEC3sIgnoreable(nsec3s, key_rrset, mVerifier)) {
-                // log.debug("all NSEC3s were validated but ignored.");
+            if (NSEC3ValUtils.allNSEC3sIgnoreable(nsec3s, keyRRset, mVerifier)) {
+                // log.debug("all NSEC3s were validated but ignored.")
                 m.setStatus(SecurityStatus.INSECURE);
 
                 return;
@@ -1190,7 +1195,7 @@ public class CaptiveValidator {
         }
 
         // Otherwise, we consider the message secure.
-        log.trace("successfully validated NAME ERROR response.");
+        log.finest("successfully validated NAME ERROR response.");
         m.setStatus(SecurityStatus.SECURE);
     }
 
@@ -1200,7 +1205,7 @@ public class CaptiveValidator {
             try {
                 zone = Name.concatenate(zone, Name.root);
             } catch (NameTooLongException e) {
-                log.error(e);
+                log.log(Level.SEVERE, "Name was too long", e);
 
                 return SecurityStatus.UNCHECKED;
             }
@@ -1215,9 +1220,9 @@ public class CaptiveValidator {
             return SecurityStatus.UNCHECKED;
         }
 
-        SRRset key_rrset = findKeys(message);
+        SRRset keyRRset = findKeys(message);
 
-        if (key_rrset == null) {
+        if (keyRRset == null) {
             mErrorList.add("Failed to find matching DNSKEYs for the response");
             return SecurityStatus.BOGUS;
         }
@@ -1226,57 +1231,57 @@ public class CaptiveValidator {
 
         switch (subtype) {
         case POSITIVE:
-            log.trace("Validating a positive response");
-            validatePositiveResponse(message, key_rrset);
+            log.finest("Validating a positive response");
+            validatePositiveResponse(message, keyRRset);
             break;
 
         case REFERRAL:
-            validateReferral(message, key_rrset);
+            validateReferral(message, keyRRset);
             break;
 
         case NODATA:
-            log.trace("Validating a NODATA response");
-            validateNodataResponse(message, key_rrset, mErrorList);
+            log.finest("Validating a NODATA response");
+            validateNodataResponse(message, keyRRset, mErrorList);
             break;
 
         case NAMEERROR:
-            log.trace("Validating a NXDOMAIN response");
-            validateNameErrorResponse(message, key_rrset);
+            log.finest("Validating a NXDOMAIN response");
+            validateNameErrorResponse(message, keyRRset);
             break;
 
         case CNAME:
-            log.trace("Validating a CNAME response");
-            validateCNAMEResponse(message, key_rrset);
+            log.finest("Validating a CNAME response");
+            validateCNAMEResponse(message, keyRRset);
             break;
 
         case ANY:
-            log.trace("Validating a positive ANY response");
-            validateAnyResponse(message, key_rrset);
+            log.finest("Validating a positive ANY response");
+            validateAnyResponse(message, keyRRset);
             break;
 
         default:
-            log.error("unhandled response subtype: " + subtype);
+            log.severe("unhandled response subtype: " + subtype);
         }
 
         return message.getSecurityStatus().getStatus();
     }
 
     public byte validateMessage(Message message, String zone)
-        throws TextParseException {
+            throws TextParseException {
         SMessage sm = new SMessage(message);
-        Name     z  = Name.fromString(zone);
+        Name z = Name.fromString(zone);
 
         return validateMessage(sm, z);
     }
 
     public byte validateMessage(byte[] messagebytes, String zone)
-        throws IOException {
+            throws IOException {
         Message message = new Message(messagebytes);
         return validateMessage(message, zone);
     }
 
     public byte validateMessage(String b64messagebytes, String zone)
-        throws IOException {
+            throws IOException {
         byte[] messagebytes = base64.fromString(b64messagebytes);
         return validateMessage(messagebytes, zone);
     }
@@ -1288,4 +1293,4 @@ public class CaptiveValidator {
     public List<String> getErrorList() {
         return mErrorList;
     }
- }
+}

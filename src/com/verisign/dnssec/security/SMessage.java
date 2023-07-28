@@ -21,17 +21,29 @@
  *                                                                         *
 \***************************************************************************/
 
-package com.verisign.tat.dnssec;
+package com.verisign.dnssec.security;
 
-import org.xbill.DNS.*;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 
-import java.util.*;
+import org.xbill.DNS.CNAMERecord;
+import org.xbill.DNS.Flags;
+import org.xbill.DNS.Header;
+import org.xbill.DNS.Message;
+import org.xbill.DNS.Name;
+import org.xbill.DNS.OPTRecord;
+import org.xbill.DNS.RRSIGRecord;
+import org.xbill.DNS.RRset;
+import org.xbill.DNS.Record;
+import org.xbill.DNS.Section;
+import org.xbill.DNS.Type;
 
 /**
  * This class represents a DNS message with resolver/validator state.
  */
 public class SMessage {
-    private static         SRRset[] empty_srrset_array = new SRRset[0];
+    private static         SRRset[] emptySRRsetArray = new SRRset[0];
     private Header         mHeader;
     private Record         mQuestion;
     private OPTRecord      mOPTRecord;
@@ -40,7 +52,7 @@ public class SMessage {
 
     @SuppressWarnings("unchecked")
     public SMessage(Header h) {
-        mSection        = (List<SRRset>[]) new List[3];
+        mSection        = new List[3];
         mHeader         = h;
         mSecurityStatus = new SecurityStatus();
     }
@@ -59,10 +71,10 @@ public class SMessage {
         mOPTRecord = m.getOPT();
 
         for (int i = Section.ANSWER; i <= Section.ADDITIONAL; i++) {
-            RRset[] rrsets = m.getSectionRRsets(i);
+            List<RRset> rrsets = m.getSectionRRsets(i);
 
-            for (int j = 0; j < rrsets.length; j++) {
-                addRRset(rrsets[j], i);
+            for (RRset rrs : rrsets) {
+                addRRset(rrs, i);
             }
         }
     }
@@ -109,10 +121,10 @@ public class SMessage {
         }
 
         if (mSection[section - 1] == null) {
-            mSection[section - 1] = new LinkedList<SRRset>();
+            mSection[section - 1] = new LinkedList<>();
         }
 
-        return (List<SRRset>) mSection[section - 1];
+        return mSection[section - 1];
     }
 
     public void addRRset(SRRset srrset, int section) {
@@ -153,17 +165,17 @@ public class SMessage {
     public SRRset[] getSectionRRsets(int section) {
         List<SRRset> slist = getSectionList(section);
 
-        return (SRRset[]) slist.toArray(empty_srrset_array);
+        return slist.toArray(emptySRRsetArray);
     }
 
     public SRRset[] getSectionRRsets(int section, int qtype) {
         List<SRRset> slist = getSectionList(section);
 
-        if (slist.size() == 0) {
+        if (slist.isEmpty()) {
             return new SRRset[0];
         }
 
-        ArrayList<SRRset> result = new ArrayList<SRRset>(slist.size());
+        ArrayList<SRRset> result = new ArrayList<>(slist.size());
 
         for (SRRset rrset : slist) {
             if (rrset.getType() == qtype) {
@@ -171,13 +183,13 @@ public class SMessage {
             }
         }
 
-        return (SRRset[]) result.toArray(empty_srrset_array);
+        return result.toArray(emptySRRsetArray);
     }
 
     public void deleteRRset(SRRset rrset, int section) {
         List<SRRset> slist = getSectionList(section);
 
-        if (slist.size() == 0) {
+        if (slist.isEmpty()) {
             return;
         }
 
@@ -266,12 +278,12 @@ public class SMessage {
             List<SRRset> slist = getSectionList(sec);
 
             for (SRRset rrset : slist) {
-                for (Iterator<Record> j = rrset.rrs(); j.hasNext();) {
-                    m.addRecord(j.next(), sec);
+                for (Record rr : rrset.rrs()) {
+                    m.addRecord(rr, sec);
                 }
 
-                for (Iterator<RRSIGRecord> j = rrset.sigs(); j.hasNext();) {
-                    m.addRecord(j.next(), sec);
+                for (RRSIGRecord sig : rrset.sigs()) {
+                    m.addRecord(sig, sec);
                 }
             }
         }
@@ -294,7 +306,7 @@ public class SMessage {
             return 0;
         }
 
-        if (sectionList.size() == 0) {
+        if (sectionList.isEmpty()) {
             return 0;
         }
 

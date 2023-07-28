@@ -1,4 +1,4 @@
-package com.verisign.tat.dnssec;
+package com.verisign.dnssec.security;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
