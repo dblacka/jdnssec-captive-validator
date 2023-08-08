@@ -24,6 +24,7 @@
 package com.verisign.dnssec.security;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -149,6 +150,14 @@ public class CaptiveValidator {
                 mTrustedKeys.store(srrset);
             }
         }
+    }
+
+    public void setCustomTime(Instant customTime) {
+        mVerifier.setCurrentTime(customTime);
+    }
+
+    public void setValidateAllSignatures(boolean value) {
+        mVerifier.setValidateAllSignatures(value);
     }
 
     // ----------------- Validation Support ----------------------

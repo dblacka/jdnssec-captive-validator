@@ -51,6 +51,10 @@ public class DnsSecVerifier {
     private DnsKeyConverter mKeyConverter;
     private DnsKeyAlgorithm mAlgorithmMap;
 
+    // We have a few validation options
+    private Instant mCurrentTime = null;
+    private boolean mValidateAllSignatures = false;
+
     private Logger log = Logger.getLogger(this.getClass().getName());
 
     public DnsSecVerifier() {
@@ -122,18 +126,23 @@ public class DnsSecVerifier {
         }
 
         if (!rrset.getName().equals(sigrec.getName())) {
-            log.fine("Signature name does not match RRset name");
+            log.warning("Signature name does not match RRset name");
 
             return SecurityStatus.BOGUS;
         }
 
         if (rrset.getType() != sigrec.getTypeCovered()) {
-            log.fine("Signature type does not match RRset type");
+            log.warning("Signature type does not match RRset type");
 
             return SecurityStatus.BOGUS;
         }
 
-        Instant now = Instant.now();
+        Instant now;
+        if (mCurrentTime != null) {
+            now = mCurrentTime;
+        } else {
+            now = Instant.now();
+        }
         Instant start = sigrec.getTimeSigned();
         Instant expire = sigrec.getExpire();
 
@@ -265,29 +274,36 @@ public class DnsSecVerifier {
      * @return SecurityStatus.SECURE if the rrest verified positively,
      *         SecurityStatus.BOGUS otherwise.
      */
-    @SuppressWarnings("rawtypes")
     public byte verify(RRset rrset, RRset keyRRset) {
-        Iterator i = rrset.sigs().iterator();
-
-        if (!i.hasNext()) {
-            log.info("RRset failed to verify due to lack of signatures");
-
-            return SecurityStatus.BOGUS;
+        if (rrset.sigs().isEmpty()) {
+            log.warning("RRset failed to verify due to lack of signatures");
+            return SecurityStatus.BOGUS;            
         }
+        byte status = SecurityStatus.UNCHECKED;
 
-        while (i.hasNext()) {
-            RRSIGRecord sigrec = (RRSIGRecord) i.next();
-
-            byte res = verifySignature(rrset, sigrec, keyRRset);
-
-            if (res == SecurityStatus.SECURE) {
-                return res;
+        for (RRSIGRecord sig : rrset.sigs()) {
+            byte result = verifySignature(rrset, sig, keyRRset);
+            switch (result) {
+                case SecurityStatus.BOGUS:
+                    log.warning("Signature was BOGUS: " + sig);
+                    status = result;
+                break;
+                case SecurityStatus.SECURE:
+                    log.fine("Signature was SECURE: " + sig);
+                    if (status != SecurityStatus.BOGUS) {
+                        status = result;
+                    }
+                break;
+                default:
+                    status = result;
+                    break;
+            }
+            if (!mValidateAllSignatures && result == SecurityStatus.SECURE) {
+                return result;
             }
         }
 
-        log.info("RRset failed to verify: all signatures were BOGUS");
-
-        return SecurityStatus.BOGUS;
+        return status;
     }
 
     /**
@@ -334,5 +350,13 @@ public class DnsSecVerifier {
 
     public boolean supportsAlgorithm(int algorithm) {
         return mAlgorithmMap.supportedAlgorithm(algorithm);
+    }
+
+    public void setCurrentTime(Instant customTime) {
+        mCurrentTime = customTime;
+    }
+
+    public void setValidateAllSignatures(boolean value) {
+        mValidateAllSignatures = value;
     }
 }

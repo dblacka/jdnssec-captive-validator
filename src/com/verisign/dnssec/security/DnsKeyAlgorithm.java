@@ -154,9 +154,16 @@ public class DnsKeyAlgorithm {
             Provider bcProvider = (Provider) bcProviderClass.getDeclaredConstructor().newInstance();
             Security.addProvider(bcProvider);
         } catch (ReflectiveOperationException e) {
-            // do nothing
+            // log.warning("Unable to load BouncyCastle provider")
         }
-
+        // Attempt to add the EdDSA-Java provider.
+        try {
+            Class<?> eddsaProviderClass = Class.forName("net.i2p.crypto.eddsa.EdDSASecurityProvider");
+            Provider eddsaProvider = (Provider) eddsaProviderClass.getDeclaredConstructor().newInstance();
+            Security.addProvider(eddsaProvider);
+        } catch (ReflectiveOperationException e) {
+            log.warning("Unable to load EdDSA provider");
+        }
         initialize();
     }
 
@@ -215,8 +222,8 @@ public class DnsKeyAlgorithm {
         // library. We don't have a corresponding constant in
         // org.xbill.DNS.DNSSEC yet, though.
         // NOTE: not *quite* working yet, so disable for now
-        // addAlgorithm(15, "NONEwithEdDSA", EDDSA, "Ed25519");
-        // addMnemonic("ED25519", 15);
+        addAlgorithm(15, "NONEwithEdDSA", EDDSA, "Ed25519");
+        addMnemonic("ED25519", 15);
     }
 
     private void addAlgorithm(int algorithm, String sigName, int baseType) {
@@ -495,10 +502,11 @@ public class DnsKeyAlgorithm {
     }
 
     /**
-     * Specifically test if an algoirthm's base type is ECDA.  For reasons.  OK,
+     * Specifically test if an algoirthm's base type is ECDA. For reasons. OK,
      * the reason is that we have re-encode it as the standard ASN.1 format
      * 
-     * @param algorithm the DNSSEC algorithm (may be an alias)
+     * @param algorithm
+     *                      the DNSSEC algorithm (may be an alias)
      * @return true if the algorithm is one of the ECDSA algorithms.
      */
     public boolean isECDSA(int algorithm) {
